@@ -12,6 +12,8 @@ import { Hdd } from './Hdd.js';
 import { Battery } from './Battery.js';
 import { Sensors } from './Sensors.js';
 import { Power } from './Power.js';
+import { Ai } from './Ai.js';
+import { Finale } from './Finale.js';
 import { Lab } from './Lab.js';
 
 export const REGISTRY = {
@@ -27,11 +29,11 @@ export const REGISTRY = {
   battery: Battery,
   sensors: Sensors,
   power: Power,
-  ai: Stub,
+  ai: Ai,
   future: Stub,
   global: Stub,
   culture: Stub,
   challenges: Stub,
-  finale: Stub,
+  finale: Finale,
   lab: Lab,
 };
