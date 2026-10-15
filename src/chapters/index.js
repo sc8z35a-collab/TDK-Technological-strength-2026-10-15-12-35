@@ -6,6 +6,9 @@ import { History } from './History.js';
 import { Tree } from './Tree.js';
 import { Numbers } from './Numbers.js';
 import { Share } from './Share.js';
+import { Mlcc } from './Mlcc.js';
+import { Inductor } from './Inductor.js';
+import { Hdd } from './Hdd.js';
 import { Lab } from './Lab.js';
 
 export const REGISTRY = {
@@ -15,9 +18,9 @@ export const REGISTRY = {
   tree: Tree,
   numbers: Numbers,
   share: Share,
-  mlcc: Stub,
-  inductor: Stub,
-  hdd: Stub,
+  mlcc: Mlcc,
+  inductor: Inductor,
+  hdd: Hdd,
   battery: Stub,
   sensors: Stub,
   power: Stub,

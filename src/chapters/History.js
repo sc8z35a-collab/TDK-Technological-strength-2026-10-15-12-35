@@ -146,7 +146,7 @@ function buildCassette(M) {
 }
 
 /* ------------------------------------------------------------------ multilayer chip */
-function buildLayeredChip(M, { layers = 12, w = 0.9, d = 0.5, lh = 0.028 } = {}) {
+export function buildLayeredChip(M, { layers = 12, w = 0.9, d = 0.5, lh = 0.028 } = {}) {
   const g = new THREE.Group();
   const sheetGeo = roundedBox(w, lh, d, 0.006, 2);
   const sheetMat = new THREE.MeshPhysicalMaterial({ color: 0xe6e0d4, roughness: 0.55, sheen: 0.3, sheenColor: new THREE.Color(0xffffff), normalMap: M.ceramicIvory.normalMap, normalScale: new THREE.Vector2(0.2, 0.2) });
@@ -194,7 +194,7 @@ function buildLayeredChip(M, { layers = 12, w = 0.9, d = 0.5, lh = 0.028 } = {})
 }
 
 /* ------------------------------------------------------------------ thin-film head */
-function buildSlider(M) {
+export function buildSlider(M) {
   const g = new THREE.Group();
   const altic = new THREE.MeshPhysicalMaterial({ color: 0x3a3c41, metalness: 0.35, roughness: 0.3, clearcoat: 0.5, clearcoatRoughness: 0.2 });
   const body = new THREE.Mesh(roundedBox(0.62, 0.15, 0.5, 0.012, 2), altic);
