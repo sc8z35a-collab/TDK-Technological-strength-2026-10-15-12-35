@@ -2,15 +2,19 @@
 import { Prologue } from './Prologue.js';
 import { Stub } from './Stub.js';
 import { Origin } from './Origin.js';
+import { History } from './History.js';
+import { Tree } from './Tree.js';
+import { Numbers } from './Numbers.js';
+import { Share } from './Share.js';
 import { Lab } from './Lab.js';
 
 export const REGISTRY = {
   prologue: Prologue,
   origin: Origin,
-  history: Stub,
-  tree: Stub,
-  numbers: Stub,
-  share: Stub,
+  history: History,
+  tree: Tree,
+  numbers: Numbers,
+  share: Share,
   mlcc: Stub,
   inductor: Stub,
   hdd: Stub,
