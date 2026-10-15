@@ -217,13 +217,22 @@ export function platterRoughness(size = 512) {
   });
 }
 
-/** Canvas-drawn texture helper. */
-export function canvasTexture(w, h, draw, { srgb = true, repeat = [1, 1], key } = {}) {
+const nextPOT = (v) => Math.pow(2, Math.ceil(Math.log2(Math.max(1, v))));
+
+/**
+ * Canvas-drawn texture helper. The canvas is rounded up to power-of-two
+ * dimensions (safer mipmapping on mobile GPUs); `draw` still receives the
+ * requested logical size.
+ */
+export function canvasTexture(w, h, draw, { srgb = true, repeat = [1, 1], key, pot = true } = {}) {
   const make = () => {
     const c = document.createElement('canvas');
-    c.width = w;
-    c.height = h;
+    const cw = pot ? Math.min(4096, nextPOT(w)) : w;
+    const ch = pot ? Math.min(4096, nextPOT(h)) : h;
+    c.width = cw;
+    c.height = ch;
     const ctx = c.getContext('2d');
+    if (cw !== w || ch !== h) ctx.scale(cw / w, ch / h);
     draw(ctx, w, h);
     const tex = new THREE.CanvasTexture(c);
     if (srgb) tex.colorSpace = THREE.SRGBColorSpace;
