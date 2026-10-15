@@ -11,6 +11,7 @@ import { Inductor } from './Inductor.js';
 import { Hdd } from './Hdd.js';
 import { Battery } from './Battery.js';
 import { Sensors } from './Sensors.js';
+import { Power } from './Power.js';
 import { Lab } from './Lab.js';
 
 export const REGISTRY = {
@@ -25,7 +26,7 @@ export const REGISTRY = {
   hdd: Hdd,
   battery: Battery,
   sensors: Sensors,
-  power: Stub,
+  power: Power,
   ai: Stub,
   future: Stub,
   global: Stub,
