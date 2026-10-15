@@ -271,6 +271,71 @@ button {
   stroke-linejoin: round;
 }
 
+/* ------------------------------------------------------------------ chapter mark */
+.chapter-mark {
+  position: absolute;
+  right: calc(var(--safe-r) + var(--pad));
+  bottom: calc(var(--safe-b) + 50px);
+  z-index: 3;
+  pointer-events: none;
+}
+.chapter-mark .cm {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  justify-items: end;
+  line-height: 1;
+  animation: cmIn 1.4s var(--ease) both;
+}
+.chapter-mark .cm b {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(56px, 19vh, 200px);
+  letter-spacing: -0.02em;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(236, 230, 218, 0.16);
+}
+.chapter-mark .cm span {
+  margin-top: 6px;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: clamp(9px, 1.2vh, 11px);
+  letter-spacing: 0.3em;
+  color: rgba(236, 230, 218, 0.28);
+}
+#ui[data-tone='light'] .chapter-mark .cm b {
+  -webkit-text-stroke: 1px rgba(23, 25, 29, 0.14);
+}
+#ui[data-tone='light'] .chapter-mark .cm span {
+  color: rgba(23, 25, 29, 0.32);
+}
+.chapter-mark .cm.out {
+  animation: cmOut 0.8s var(--ease) both;
+}
+@keyframes cmIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+@keyframes cmOut {
+  to {
+    opacity: 0;
+    transform: translateY(-24px);
+    filter: blur(6px);
+  }
+}
+html.portrait .chapter-mark {
+  display: none;
+}
+
 /* ------------------------------------------------------------------ caption */
 .scrim {
   position: absolute;
@@ -1177,12 +1242,20 @@ html.portrait .caption-wrap {
   right: calc(var(--safe-r) + 18px);
   width: auto;
   top: auto;
-  bottom: calc(var(--safe-b) + 58px);
+  bottom: calc(var(--safe-b) + 74px);
   height: 48%;
   align-items: end;
 }
-html.portrait .title {
-  font-size: clamp(22px, 6.4vw, 34px);
+html.portrait .title,
+html.portrait .caption.big .title {
+  font-size: clamp(22px, 6.8vw, 34px);
+  line-height: 1.3;
+}
+html.portrait .stats {
+  gap: 14px;
+}
+html.portrait .cap-actions {
+  margin-bottom: 6px;
 }
 html.portrait .lead {
   font-size: 13px;

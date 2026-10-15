@@ -75,6 +75,9 @@ export class Overlay {
     this.scrim = h('div', 'scrim');
     r.appendChild(this.scrim);
 
+    this.mark = h('div', 'chapter-mark');
+    r.appendChild(this.mark);
+
     this.captionWrap = h('section', 'caption-wrap');
     r.appendChild(this.captionWrap);
 
@@ -264,6 +267,16 @@ export class Overlay {
       const el = c.querySelector(`.sv-num[data-i="${i}"]`);
       this.counters.push({ el, to: s.value, from: s.from ?? 0, dec: s.decimals ?? 0, fmt: s.fmt ?? (s.unit === '年' && s.value > 1800 ? 'year' : undefined), t: -0.35 - i * 0.12, dur: 1.4 });
     });
+    if (this.markIndex !== chapterIndex) {
+      this.markIndex = chapterIndex;
+      const old = this.mark.querySelector('.cm:not(.out)');
+      if (old) {
+        old.classList.add('out');
+        setTimeout(() => old.remove(), 900);
+      }
+      const m = h('div', 'cm', `<b>${String(chapterIndex).padStart(2, '0')}</b><span>${chapter.en || ''}</span>`);
+      this.mark.appendChild(m);
+    }
     this.currentChapter = chapter;
     clearTimeout(this._capT);
     this._capT = setTimeout(() => this.measureCaption(), 1300);
