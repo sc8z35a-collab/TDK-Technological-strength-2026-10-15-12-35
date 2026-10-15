@@ -95,13 +95,14 @@ export function sampleRing(count, seed = 1, { inner, outer, height } = CORE) {
 /** Approximate blackbody tint for a glow factor 0..1 (dull red -> orange -> yellow-white). */
 export function heatColor(k, out = new THREE.Color()) {
   const t = clamp01(k);
-  out.setRGB(1.0, lerp(0.12, 0.72, t * t), lerp(0.02, 0.38, t * t * t));
+  out.setRGB(1.0, lerp(0.1, 0.5, t * t), lerp(0.02, 0.16, t * t * t));
   return out;
 }
 
 export class Prologue extends Chapter {
   constructor(app, def, index) {
     super(app, def, index);
+    this.dofSteps = [0.006, 0.006];
     this.env = 'studio';
     this.exposure = 1.05;
     this.shift = 0.22;
@@ -208,12 +209,13 @@ export class Prologue extends Chapter {
     return [{ pos: [0.15, 0.7, 5.6], target: [0, 0.02, 0], fov: 30, dur: 2.2 }];
   }
 
-  onStep() {
-    if (this.assembled) this.stepTime = 12;
-  }
+  onStep() {}
 
   tick(dt, t) {
-    const T = (this.T = this.stepTime);
+    // The assembly runs on its own clock so it continues across steps.
+    this.assemblyT = (this.assemblyT || 0) + dt;
+    if (this.assembled) this.assemblyT = Math.max(this.assemblyT, 12);
+    const T = (this.T = this.assemblyT);
     const gather = clamp01((T - 0.4) / 3.4);
     const reveal = smoothstep(2.7, 4.6, T);
     const heat = 1 - smoothstep(3.6, 8.2, T);
@@ -232,9 +234,9 @@ export class Prologue extends Chapter {
     const glow = heat * smoothstep(2.7, 3.6, T);
     heatColor(glow, this._heat);
     this.coreMat.emissive.copy(this._heat);
-    this.coreMat.emissiveIntensity = 3.2 * glow * glow;
+    this.coreMat.emissiveIntensity = 1.7 * glow * glow;
     this.coreMat.dissolve.uEdgeColor.value.copy(this._heat).multiplyScalar(0.6 + glow);
-    this.heatLight.intensity = 9 * glow * glow;
+    this.heatLight.intensity = 6 * glow * glow;
 
     const n = Math.floor(this.windTotal * wind);
     this.windGeo.setDrawRange(0, n - (n % 3));

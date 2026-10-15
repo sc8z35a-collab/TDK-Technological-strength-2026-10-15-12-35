@@ -203,6 +203,7 @@ function buildMems(M) {
 export class Sensors extends Chapter {
   constructor(app, def, index) {
     super(app, def, index);
+    this.dofSteps = [0.004, 0.006, 0.006, 0.01, 0.004];
     this.env = 'studio';
     this.exposure = 1.0;
     this.shift = 0.2;

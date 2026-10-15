@@ -67,6 +67,7 @@ function sampleSurface(sdf, count, bounds, rand) {
 export class Mlcc extends Chapter {
   constructor(app, def, index) {
     super(app, def, index);
+    this.dofSteps = [0.02, 0.012, 0.0, 0.006];
     this.env = 'studio';
     this.exposure = 1.0;
     this.shift = 0.2;

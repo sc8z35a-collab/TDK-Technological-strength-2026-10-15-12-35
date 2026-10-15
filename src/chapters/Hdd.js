@@ -225,6 +225,7 @@ function buildDrive(M) {
 export class Hdd extends Chapter {
   constructor(app, def, index) {
     super(app, def, index);
+    this.dofSteps = [0.004, 0.022, 0.018, 0.02, 0.006];
     this.env = 'studio';
     this.exposure = 1.0;
     this.shift = 0.2;

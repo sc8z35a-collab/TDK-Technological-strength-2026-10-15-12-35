@@ -136,6 +136,57 @@ const UP_FRAG = /* glsl */ `
   }
 `;
 
+// Depth of field: pass 1 packs scene colour + signed circle of confusion (half res),
+// pass 2 gathers a golden-angle bokeh. Focus follows the camera target.
+const COC_FRAG = /* glsl */ `
+  varying vec2 vUv;
+  uniform sampler2D tDepth;
+  uniform float uNear, uFar, uFocus, uAperture, uMaxCoc;
+  ${COMMON}
+  float linearDepth(float d) {
+    float z = d * 2.0 - 1.0;
+    return (2.0 * uNear * uFar) / (uFar + uNear - z * (uFar - uNear));
+  }
+  void main() {
+    float z = linearDepth(texture2D(tDepth, vUv).r);
+    float coc = uAperture * (z - uFocus) / max(z, 1e-3);   // signed: <0 foreground
+    coc = clamp(coc, -1.0, 1.0);
+    vec3 c = sceneColor(vUv);
+    gl_FragColor = vec4(min(c, vec3(32.0)), coc);
+  }
+`;
+
+const BOKEH_FRAG = /* glsl */ `
+  varying vec2 vUv;
+  uniform sampler2D tSrc;
+  uniform vec2 uTexel;
+  uniform float uMaxCoc;
+  const int TAPS = 36;
+  void main() {
+    vec4 center = texture2D(tSrc, vUv);
+    float cc = abs(center.a) * uMaxCoc;
+    vec3 acc = center.rgb;
+    float wsum = 1.0;
+    float ga = 2.39996323;
+    for (int i = 1; i < TAPS; i++) {
+      float fi = float(i);
+      float r = sqrt(fi / float(TAPS)) * uMaxCoc;
+      float a = fi * ga;
+      vec2 off = vec2(cos(a), sin(a)) * r * uTexel;
+      vec4 s = texture2D(tSrc, vUv + off);
+      float sc = abs(s.a) * uMaxCoc;
+      // A sample contributes if its own blur reaches this pixel (gather approximation),
+      // and foreground samples may bleed over sharper background.
+      float reach = smoothstep(r - 1.0, r + 0.5, sc);
+      float fg = step(s.a, 0.0) * step(center.a, s.a + 0.05);
+      float w = max(reach, fg * reach) * (1.0 / (1.0 + dot(s.rgb, vec3(0.06))));
+      acc += s.rgb * w;
+      wsum += w;
+    }
+    gl_FragColor = vec4(acc / wsum, center.a);
+  }
+`;
+
 const COMPOSITE_FRAG = /* glsl */ `
   varying vec2 vUv;
   uniform sampler2D tBloom;
@@ -150,7 +201,19 @@ const COMPOSITE_FRAG = /* glsl */ `
   uniform vec3 uGain;
   uniform float uFade;
   uniform vec3 uFadeColor;
+  uniform sampler2D tDof;
+  uniform float uDofOn;
+  uniform float uDofPixels;
   ${COMMON}
+
+  vec3 sceneDof(vec2 uv) {
+    vec3 sharp = sceneColor(uv);
+    if (uDofOn <= 0.0) return sharp;
+    vec4 b = texture2D(tDof, uv);
+    float px = abs(b.a) * uDofPixels;
+    float k = smoothstep(0.6, 2.2, px) * uDofOn;
+    return mix(sharp, b.rgb, k);
+  }
 
   // AgX (Troy Sobotka) minimal approximation by Benjamin Wrensch.
   vec3 agxContrast(vec3 x) {
@@ -195,9 +258,9 @@ const COMPOSITE_FRAG = /* glsl */ `
     vec3 col;
     if (uFringe > 0.0) {
       vec2 off = d * r2 * uFringe;
-      col = vec3(sceneColor(uv - off).r, sceneColor(uv).g, sceneColor(uv + off).b);
+      col = vec3(sceneDof(uv - off).r, sceneDof(uv).g, sceneDof(uv + off).b);
     } else {
-      col = sceneColor(uv);
+      col = sceneDof(uv);
     }
     col += texture2D(tBloom, uv).rgb * uBloom;
     col = agx(col);
@@ -216,8 +279,8 @@ const COMPOSITE_FRAG = /* glsl */ `
   }
 `;
 
-function makeRT(w, h, samples = 0, depth = true) {
-  return new THREE.WebGLRenderTarget(w, h, {
+function makeRT(w, h, samples = 0, depth = true, depthTexture = false) {
+  const rt = new THREE.WebGLRenderTarget(w, h, {
     type: THREE.HalfFloatType,
     format: THREE.RGBAFormat,
     samples,
@@ -227,6 +290,11 @@ function makeRT(w, h, samples = 0, depth = true) {
     minFilter: THREE.LinearFilter,
     generateMipmaps: false,
   });
+  if (depthTexture) {
+    rt.depthTexture = new THREE.DepthTexture(w, h);
+    rt.depthTexture.type = THREE.UnsignedIntType;
+  }
+  return rt;
 }
 
 export class Post {
@@ -310,12 +378,40 @@ export class Post {
       depthWrite: false,
       toneMapped: false,
     });
+    this.cocMat = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: COC_FRAG,
+      uniforms: {
+        ...sharedUniforms,
+        tDepth: { value: null },
+        uNear: { value: 0.1 },
+        uFar: { value: 100 },
+        uFocus: { value: 5 },
+        uAperture: { value: 0 },
+        uMaxCoc: { value: 10 },
+      },
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.bokehMat = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: BOKEH_FRAG,
+      uniforms: { tSrc: { value: null }, uTexel: { value: new THREE.Vector2() }, uMaxCoc: { value: 10 } },
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.dofEnabled = false;
+    this.dofAmount = 0;
+    this.compositeMat.uniforms.tDof = { value: null };
+    this.compositeMat.uniforms.uDofOn = { value: 0 };
+    this.compositeMat.uniforms.uDofPixels = { value: 10 };
     // The bloom chain starts black until the first frame.
     this.blackTex = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1);
     this.blackTex.needsUpdate = true;
   }
 
-  setSize(width, height, msaa, bloomScale) {
+  setSize(width, height, msaa, bloomScale, dof = false) {
+    this.dofEnabled = dof;
     this.width = Math.max(2, Math.floor(width));
     this.height = Math.max(2, Math.floor(height));
     this.msaa = msaa;
@@ -323,8 +419,17 @@ export class Post {
     const w = this.width, h = this.height;
     this.rtA?.dispose();
     this.rtB?.dispose();
-    this.rtA = makeRT(w, h, msaa, true);
-    this.rtB = makeRT(w, h, msaa, true);
+    this.rtA = makeRT(w, h, msaa, true, dof);
+    this.rtB = makeRT(w, h, msaa, true, false);
+    this.dofSrc?.dispose();
+    this.dofOut?.dispose();
+    if (dof) {
+      const dw = Math.max(2, Math.floor(w / 2)), dh = Math.max(2, Math.floor(h / 2));
+      this.dofSrc = makeRT(dw, dh, 0, false);
+      this.dofOut = makeRT(dw, dh, 0, false);
+    } else {
+      this.dofSrc = this.dofOut = null;
+    }
     this.mips.forEach((m) => m.dispose());
     this.mips = [];
     let mw = Math.max(2, Math.floor(w * bloomScale));
@@ -368,6 +473,32 @@ export class Post {
     }
 
     const cu = this.compositeMat.uniforms;
+    // Depth of field (scene A's depth); fades out while a transition is running.
+    const wantDof = this.dofEnabled && a.camera && (look.dof || 0) > 0.0005;
+    const target = wantDof ? (look.dof || 0) * (b && mix > 0 ? 1 - Math.min(1, mix * 3) : 1) : 0;
+    this.dofAmount += (target - this.dofAmount) * 0.08;
+    if (this.dofEnabled && this.dofAmount > 0.0004 && this.rtA.depthTexture) {
+      const cam = a.camera;
+      const maxPx = 9 * (this.height / 2) / 540 + 3;
+      const cm = this.cocMat.uniforms;
+      cm.tDepth.value = this.rtA.depthTexture;
+      cm.uNear.value = cam.near;
+      cm.uFar.value = cam.far;
+      cm.uFocus.value = a.focus || 5;
+      cm.uAperture.value = this.dofAmount * 40;
+      this.blit(this.cocMat, this.dofSrc);
+      const bm = this.bokehMat.uniforms;
+      bm.tSrc.value = this.dofSrc.texture;
+      bm.uTexel.value.set(1 / this.dofSrc.width, 1 / this.dofSrc.height);
+      bm.uMaxCoc.value = maxPx;
+      this.blit(this.bokehMat, this.dofOut);
+      cu.tDof.value = this.dofOut.texture;
+      cu.uDofOn.value = 1;
+      cu.uDofPixels.value = maxPx * 2;
+    } else {
+      cu.uDofOn.value = 0;
+      cu.tDof.value = this.blackTex;
+    }
     if (this.bloomEnabled && look.bloom > 0.001) {
       const m0 = this.mips[0];
       this.prefilterMat.uniforms.uTexel.value.set(1 / this.width, 1 / this.height);
@@ -411,6 +542,8 @@ export class Post {
   }
 
   dispose() {
+    this.dofSrc?.dispose();
+    this.dofOut?.dispose();
     this.rtA?.dispose();
     this.rtB?.dispose();
     this.mips.forEach((m) => m.dispose());

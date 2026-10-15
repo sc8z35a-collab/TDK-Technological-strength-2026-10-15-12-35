@@ -56,6 +56,7 @@ export class Chapter {
     this.prevStep = this.step;
     this.step = step;
     this.stepTime = 0;
+    if (this.dofSteps) this.look.dof = this.dofSteps[step] ?? 0;
     const pose = this.poses()[step];
     if (pose) {
       if (instant) this.rig.set(pose);

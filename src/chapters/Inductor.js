@@ -107,6 +107,7 @@ function thinFilmInductor(M) {
 export class Inductor extends Chapter {
   constructor(app, def, index) {
     super(app, def, index);
+    this.dofSteps = [0.006, 0.008, 0.008, 0.01];
     this.env = 'studio';
     this.exposure = 1.0;
     this.shift = 0.2;

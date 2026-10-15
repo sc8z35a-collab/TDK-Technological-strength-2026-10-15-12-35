@@ -27,6 +27,7 @@ for (const [w, h] of sizes) {
     hasTouch: mobile,
   });
   const page = await ctx.newPage();
+  if (process.env.QUALITY) await page.addInitScript((q) => localStorage.setItem('tdk-atlas-quality', q), process.env.QUALITY);
   const logs = [];
   page.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));
   page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}\n${e.stack}`));

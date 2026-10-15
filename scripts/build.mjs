@@ -30,3 +30,6 @@ html = html.replace('/*__STYLE__*/', () => css).replace('/*__SCRIPT__*/', () => 
 fs.writeFileSync(path.join(out, 'index.html'), html);
 fs.writeFileSync(path.join(out, '.nojekyll'), '');
 console.log(`docs/index.html ${(html.length / 1024).toFixed(0)} KB (js ${(js.length / 1024).toFixed(0)} KB)`);
+
+// PWA icons and manifest.
+await import('./gen-icons.mjs');

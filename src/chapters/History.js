@@ -256,6 +256,7 @@ function flagPin(M, text, sub, height = 0.75) {
 export class History extends Chapter {
   constructor(app, def, index) {
     super(app, def, index);
+    this.dofSteps = [0.006, 0.012, 0.012, 0.004];
     this.env = 'studio';
     this.exposure = 1.0;
     this.shift = 0.18;

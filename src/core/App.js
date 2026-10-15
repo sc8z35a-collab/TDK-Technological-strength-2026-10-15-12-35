@@ -23,6 +23,7 @@ const DEFAULT_LOOK = {
   gain: new THREE.Vector3(1, 1, 1),
   fade: 0,
   fadeColor: new THREE.Color(0x0b0c0e),
+  dof: 0,
 };
 
 function mixLook(a, b, t) {
@@ -48,6 +49,7 @@ export class App {
     this.time = 0;
     this.started = false;
     this.ctaDone = false;
+    this.transitionDur = 1.35; // seconds; QA scripts may shorten it
   }
 
   async init() {
@@ -68,7 +70,7 @@ export class App {
     this.quality.onChange = () => this.resize(true);
     setMaxAnisotropy(Math.min(8, r.capabilities.getMaxAnisotropy()));
     r.shadowMap.enabled = this.quality.tier.shadows;
-    r.shadowMap.type = THREE.PCFSoftShadowMap;
+    r.shadowMap.type = THREE.PCFShadowMap;
 
     this.overlay = new Overlay(this.uiRoot, this);
     this.overlay.setProgress(0.05);
@@ -169,7 +171,7 @@ export class App {
     this.canvas.style.height = `${h}px`;
     const t = this.quality.tier;
     this.renderer.shadowMap.enabled = t.shadows;
-    this.post.setSize(w * pr, h * pr, t.msaa, t.bloomScale);
+    this.post.setSize(w * pr, h * pr, t.msaa, t.bloomScale, !!t.dof);
     this.chapters?.forEach((c) => c.built && c.resize(w, h));
     document.documentElement.classList.toggle('portrait', this.layout.portrait);
     document.documentElement.classList.toggle('compact', this.layout.compact);
@@ -207,7 +209,7 @@ export class App {
       B.enter(to.step, dir);
       this.post.shared.uDir.value.set(dir > 0 ? 1 : -1, dir > 0 ? 0.32 : -0.32);
       this.post.shared.uSeed.value = Math.random() * 10;
-      this.transition = { from: A, to: B, t: 0, dur: 1.35 };
+      this.transition = { from: A, to: B, t: 0, dur: this.transitionDur };
       this.current = B;
       this.overlay.setLabels(B.labels);
     }
@@ -325,7 +327,7 @@ export class App {
     const b = tr ? tr.to : null;
     const look = tr ? mixLook(a.look, b.look, mix) : mixLook(a.look, a.look, 0);
     this.post.render(
-      { scene: a.scene, camera: a.camera, exposure: a.exposure },
+      { scene: a.scene, camera: a.camera, exposure: a.exposure, focus: a.camera.position.distanceTo(a.rig.target) },
       b ? { scene: b.scene, camera: b.camera, exposure: b.exposure } : null,
       mix,
       this.time,
