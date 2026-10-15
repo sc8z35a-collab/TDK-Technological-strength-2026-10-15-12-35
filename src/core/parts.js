@@ -279,7 +279,7 @@ export function arcMagnet({ inner = 0.8, outer = 1.0, angle = 0.8, length = 1.2,
 /* ------------------------------------------------------------ batteries */
 
 /** Pouch lithium-ion cell. Footprint w x l (X x Z), thickness t. Tabs at +Z. */
-export function pouchCell({ w = 0.62, l = 0.95, t = 0.05, label = false } = {}) {
+export function pouchCell({ w = 0.62, l = 0.95, t = 0.05, label = false, labelColor = 0x15171b } = {}) {
   const M = materials();
   const g = new THREE.Group();
   const body = mesh(cachedGeo(`pouch${w}${l}${t}`, () => roundedBox(w, t, l, t * 0.48, 6)), M.pouch);
@@ -297,7 +297,7 @@ export function pouchCell({ w = 0.62, l = 0.95, t = 0.05, label = false } = {}) 
   const tape = mesh(cachedGeo(`ptape${w}`, () => roundedBox(w * 0.7, 0.006, 0.05, 0.002, 2)), M.kapton, 0, t * 0.5, l / 2 - 0.05);
   g.add(tape);
   if (label) {
-    const lbl = mesh(cachedGeo(`plabel${w}${l}`, () => roundedBox(w * 0.96, 0.002, l * 0.82, 0.001, 1)), new THREE.MeshPhysicalMaterial({ color: 0x15171b, roughness: 0.42, clearcoat: 0.5, clearcoatRoughness: 0.35 }), 0, t / 2 + 0.001, -0.02);
+    const lbl = mesh(cachedGeo(`plabel${w}${l}`, () => roundedBox(w * 0.96, 0.002, l * 0.82, 0.001, 1)), new THREE.MeshPhysicalMaterial({ color: labelColor, roughness: 0.42, clearcoat: 0.5, clearcoatRoughness: 0.35 }), 0, t / 2 + 0.001, -0.02);
     g.add(lbl);
   }
   return g;

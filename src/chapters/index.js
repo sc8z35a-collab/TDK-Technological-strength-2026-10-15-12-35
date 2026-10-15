@@ -9,6 +9,8 @@ import { Share } from './Share.js';
 import { Mlcc } from './Mlcc.js';
 import { Inductor } from './Inductor.js';
 import { Hdd } from './Hdd.js';
+import { Battery } from './Battery.js';
+import { Sensors } from './Sensors.js';
 import { Lab } from './Lab.js';
 
 export const REGISTRY = {
@@ -21,8 +23,8 @@ export const REGISTRY = {
   mlcc: Mlcc,
   inductor: Inductor,
   hdd: Hdd,
-  battery: Stub,
-  sensors: Stub,
+  battery: Battery,
+  sensors: Sensors,
   power: Stub,
   ai: Stub,
   future: Stub,
