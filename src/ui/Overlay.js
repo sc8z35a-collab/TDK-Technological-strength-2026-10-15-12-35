@@ -108,7 +108,7 @@ export class Overlay {
         <ol class="menu-list"></ol>
         <div class="menu-foot">
           <div class="menu-quality"><span>画質</span><button data-q="auto">自動</button><button data-q="high">高</button><button data-q="mid">標準</button><button data-q="low">軽量</button></div>
-          <p class="menu-note">本サイトは2026年10月15日時点の公開情報をもとに作成した<b>非公式の学習用コンテンツ</b>です。TDK株式会社とは関係ありません。</p>
+          <p class="menu-note">本サイトは2026年10月15日時点の公開情報をもとに作成した<b>非公式の学習用コンテンツ</b>です。TDK株式会社とは関係ありません。<a class="menu-text" href="?text">テキスト版で読む</a></p>
         </div>
       </div>`;
     r.appendChild(this.menu);

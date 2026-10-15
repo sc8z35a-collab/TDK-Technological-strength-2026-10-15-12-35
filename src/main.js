@@ -2,10 +2,11 @@ import './polyfills.js';
 import { App } from './core/App.js';
 import { CHAPTERS } from './content/chapters.js';
 import { REGISTRY } from './chapters/index.js';
+import { renderReader } from './ui/Reader.js';
 
 function fail(msg) {
-  const ui = document.getElementById('ui');
-  ui.innerHTML = `<div style="position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;pointer-events:auto"><div><p style="font-family:serif;font-size:20px;margin:0 0 8px">3D表示を開始できませんでした</p><p style="font-size:13px;color:#9a9ea6;margin:0">${msg}</p></div></div>`;
+  document.getElementById('gl').style.display = 'none';
+  renderReader(document.getElementById('ui'), CHAPTERS, `3D表示を開始できなかったため、テキスト版を表示しています。<br><small>${msg}</small>`);
 }
 
 function hasWebGL2() {
@@ -17,7 +18,10 @@ function hasWebGL2() {
   }
 }
 
-if (!hasWebGL2()) {
+if (/[?&]text\b/.test(location.search)) {
+  document.getElementById('gl').style.display = 'none';
+  renderReader(document.getElementById('ui'), CHAPTERS);
+} else if (!hasWebGL2()) {
   fail('お使いのブラウザはWebGL 2に対応していません。最新のChrome・Safari・Edgeでお試しください。');
 } else {
   const app = new App({
