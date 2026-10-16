@@ -1,4 +1,4 @@
-// Renders the social preview image docs/og.png (1200x630) from the opening
+// Renders the social preview image docs/og.jpg (1200x630) from the opening
 // scene at high quality with the navigation chrome hidden.
 //   node scripts/gen-og.mjs   (after node scripts/build.mjs)
 import { chromium } from 'playwright-core';
@@ -18,6 +18,6 @@ await page.waitForFunction(() => window.__atlas && window.__atlas.started, null,
 await page.evaluate(() => window.__atlas.skip(10.5));
 await page.addStyleTag({ content: '.rail,.hint,.labels,.cap-actions,.top-actions,.top-chapter,.chapter-mark,.toast{display:none!important}' });
 await page.waitForTimeout(5000);
-await page.screenshot({ path: path.join(root, 'docs/og.png') });
+await page.screenshot({ path: path.join(root, 'docs/og.jpg'), type: 'jpeg', quality: 90 });
 await browser.close();
-console.log('docs/og.png written');
+console.log('docs/og.jpg written');
