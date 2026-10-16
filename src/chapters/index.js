@@ -16,6 +16,7 @@ import { Ai } from './Ai.js';
 import { Future } from './Future.js';
 import { Global } from './Global.js';
 import { Culture } from './Culture.js';
+import { Challenges } from './Challenges.js';
 import { Finale } from './Finale.js';
 import { Lab } from './Lab.js';
 
@@ -36,7 +37,7 @@ export const REGISTRY = {
   future: Future,
   global: Global,
   culture: Culture,
-  challenges: Stub,
+  challenges: Challenges,
   finale: Finale,
   lab: Lab,
 };
