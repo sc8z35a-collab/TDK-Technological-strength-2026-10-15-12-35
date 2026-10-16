@@ -439,8 +439,10 @@ export function scatterChips(count, { area = [4, 3], y = 0, seed = 7, sizes = [[
   const group = new THREE.Group();
   for (const [l, w, h] of sizes) {
     const n = Math.round(count / sizes.length);
-    const bodyGeo = roundedBox(l * 0.62, h, w, Math.min(w, h) * 0.1, 2);
-    const termGeo = roundedBox(l * 0.2, h * 1.06, w * 1.06, Math.min(w, h) * 0.12, 2);
+    // One chamfer segment: these parts are a few pixels wide, and hundreds of
+    // them share the board, so 108 instead of 300 triangles per box.
+    const bodyGeo = roundedBox(l * 0.62, h, w, Math.min(w, h) * 0.1, 1);
+    const termGeo = roundedBox(l * 0.2, h * 1.06, w * 1.06, Math.min(w, h) * 0.12, 1);
     const bodies = new THREE.InstancedMesh(bodyGeo, M[body], n);
     const terms = new THREE.InstancedMesh(termGeo, M.tin, n * 2);
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(1, 1, 1);
