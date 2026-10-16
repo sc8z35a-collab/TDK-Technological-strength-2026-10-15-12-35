@@ -815,6 +815,9 @@ html.cinema .hint {
   color: var(--muted);
   letter-spacing: 0.04em;
 }
+html.portrait .tick span {
+  display: none;
+}
 .ruler-marker {
   position: absolute;
   bottom: -1px;

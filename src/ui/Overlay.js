@@ -386,7 +386,9 @@ export class Overlay {
     const cap = this.capRect;
     const portrait = this.app.layout.portrait;
     const minX = cap && !portrait ? cap.right + 6 : 8;
-    const maxX = W - 8, top = 56, bottom = H - 64;
+    const maxX = W - 8, top = 56;
+    // Portrait stacks the caption under the scene: labels live above it.
+    const bottom = portrait && cap ? Math.min(H - 64, cap.top - 8) : H - 64;
     const live = [];
     for (const l of labels) {
       const rec = this.labelEls.get(l);
@@ -394,7 +396,10 @@ export class Overlay {
       const el = rec.el;
       let vis = l.visible;
       // Hide labels whose anchor sits under the caption text.
-      if (vis && cap && !portrait && l.x < cap.right + 8 && l.y > cap.top - 10 && l.y < cap.bottom + 10) vis = false;
+      if (vis && cap) {
+        if (portrait) vis = l.y < cap.top - 4;
+        else if (l.x < cap.right + 8 && l.y > cap.top - 10 && l.y < cap.bottom + 10) vis = false;
+      }
       if (!vis) {
         if (el.classList.contains('on')) el.classList.remove('on');
         rec.placed = false;
