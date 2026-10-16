@@ -321,7 +321,7 @@ export class App {
     this.current.update(dt, this.time);
     this.overlay.updateCounters(dt);
     const labels = this.current.projectLabels(this.width, this.height);
-    this.overlay.updateLabels(labels);
+    this.overlay.updateLabels(labels, dt);
 
     const a = tr ? tr.from : this.current;
     const b = tr ? tr.to : null;

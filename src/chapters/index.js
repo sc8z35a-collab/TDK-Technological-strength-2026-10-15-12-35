@@ -13,6 +13,9 @@ import { Battery } from './Battery.js';
 import { Sensors } from './Sensors.js';
 import { Power } from './Power.js';
 import { Ai } from './Ai.js';
+import { Future } from './Future.js';
+import { Global } from './Global.js';
+import { Culture } from './Culture.js';
 import { Finale } from './Finale.js';
 import { Lab } from './Lab.js';
 
@@ -30,9 +33,9 @@ export const REGISTRY = {
   sensors: Sensors,
   power: Power,
   ai: Ai,
-  future: Stub,
-  global: Stub,
-  culture: Stub,
+  future: Future,
+  global: Global,
+  culture: Culture,
   challenges: Stub,
   finale: Finale,
   lab: Lab,

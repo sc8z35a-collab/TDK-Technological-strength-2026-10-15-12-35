@@ -306,52 +306,112 @@ export class Overlay {
       const el = h('div', `lbl ${l.cls || ''}`);
       el.innerHTML = `<i class="dot"></i><span class="leader"></span><div class="box"><b>${l.text}</b>${l.sub ? `<small>${l.sub}</small>` : ''}</div>`;
       this.labelsLayer.appendChild(el);
-      const rec = { el, dx: l.offset[0], dy: l.offset[1], flipX: false, flipY: false, bw: 0 };
-      this.applyLabelGeom(rec);
+      const rec = { el, bw: 0, bh: 0, flipX: false, flipY: false, sx: 0, sy: 0, placed: false, gdx: NaN, gdy: NaN, left: null };
       this.labelEls.set(l, rec);
     }
     this.measureCaption();
   }
-  applyLabelGeom(rec) {
-    const dx = rec.flipX ? -rec.dx : rec.dx;
-    const dy = rec.flipY ? -rec.dy : rec.dy;
+  applyLabelGeom(rec, dx, dy) {
+    if (Math.abs(dx - rec.gdx) < 0.25 && Math.abs(dy - rec.gdy) < 0.25) return;
+    rec.gdx = dx;
+    rec.gdy = dy;
     const len = Math.hypot(dx, dy);
-    const el = rec.el;
-    el.style.setProperty('--dx', `${dx}px`);
-    el.style.setProperty('--dy', `${dy}px`);
-    el.style.setProperty('--len', `${Math.max(0, len - 4)}px`);
-    el.style.setProperty('--ang', `${Math.atan2(dy, dx)}rad`);
-    el.classList.toggle('left', dx < 0);
+    const st = rec.el.style;
+    st.setProperty('--dx', `${dx.toFixed(1)}px`);
+    st.setProperty('--dy', `${dy.toFixed(1)}px`);
+    st.setProperty('--len', `${Math.max(0, len - 4).toFixed(1)}px`);
+    st.setProperty('--ang', `${Math.atan2(dy, dx).toFixed(4)}rad`);
   }
   measureCaption() {
     const c = this.captionWrap.querySelector('.caption:not(.out)');
     this.capRect = c ? c.getBoundingClientRect() : null;
   }
-  updateLabels(labels) {
+  /**
+   * Places the 3D-anchored labels: picks the side that fits (never into the
+   * caption), keeps boxes inside the safe area and pushes overlapping boxes
+   * apart vertically. The resolved shift is stored relative to the anchor and
+   * eased, so labels glide apart without trailing behind moving objects.
+   */
+  updateLabels(labels, dt = 1 / 60) {
     const W = this.app.width, H = this.app.height;
     const cap = this.capRect;
+    const portrait = this.app.layout.portrait;
+    const minX = cap && !portrait ? cap.right + 6 : 8;
+    const maxX = W - 8, top = 56, bottom = H - 64;
+    const live = [];
     for (const l of labels) {
       const rec = this.labelEls.get(l);
       if (!rec) continue;
       const el = rec.el;
       let vis = l.visible;
       // Hide labels whose anchor sits under the caption text.
-      if (vis && cap && !this.app.layout.portrait && l.x < cap.right + 8 && l.y > cap.top - 10 && l.y < cap.bottom + 10) vis = false;
-      if (vis) {
-        if (!rec.bw) rec.bw = el.querySelector('.box').offsetWidth || 120;
-        const fx = l.offset[0] >= 0 ? l.x + l.offset[0] + rec.bw + 14 > W - 8 : l.x + l.offset[0] - rec.bw - 14 < 8;
-        const minX = cap && !this.app.layout.portrait ? cap.right + 6 : 8;
-        const intoCap = l.offset[0] < 0 && l.x + l.offset[0] - rec.bw - 14 < minX;
-        const fy = l.y + l.offset[1] < 54 || l.y + l.offset[1] > H - 60;
-        const flipX = fx || intoCap;
-        if (flipX !== rec.flipX || fy !== rec.flipY) {
-          rec.flipX = flipX;
-          rec.flipY = fy;
-          this.applyLabelGeom(rec);
+      if (vis && cap && !portrait && l.x < cap.right + 8 && l.y > cap.top - 10 && l.y < cap.bottom + 10) vis = false;
+      if (!vis) {
+        if (el.classList.contains('on')) el.classList.remove('on');
+        rec.placed = false;
+        continue;
+      }
+      if (!rec.bw) {
+        const b = el.querySelector('.box');
+        rec.bw = b.offsetWidth || 120;
+        rec.bh = b.offsetHeight || 34;
+      }
+      const ox = Math.abs(l.offset[0]), oy = l.offset[1];
+      const need = ox + rec.bw + 8;
+      const roomR = maxX - l.x, roomL = l.x - minX;
+      // Preferred side unless it doesn't fit and the other side does better.
+      let right = l.offset[0] >= 0;
+      if (right && roomR < need && roomL > roomR) right = false;
+      else if (!right && roomL < need && roomR > roomL) right = true;
+      const fy = l.y + oy < top || l.y + oy > bottom;
+      const dx = right ? ox : -ox;
+      const dy = fy ? -oy : oy;
+      // Box rectangle in screen space before shifting.
+      const x0 = right ? l.x + dx + 6 : l.x + dx - 6 - rec.bw;
+      let tx = 0;
+      if (x0 + rec.bw > maxX) tx = maxX - (x0 + rec.bw);
+      if (x0 + tx < minX) tx = minX - x0;
+      live.push({ l, rec, right, dx, dy, x0: x0 + tx, x1: x0 + tx + rec.bw, cy: l.y + dy, h: rec.bh, tx });
+    }
+    // Vertical relaxation between overlapping boxes, then clamp to the safe area.
+    for (let it = 0; it < 6; it++) {
+      live.sort((a, b) => a.cy - b.cy);
+      let moved = false;
+      for (let i = 0; i < live.length; i++) {
+        const a = live[i];
+        for (let j = i + 1; j < live.length; j++) {
+          const b = live[j];
+          if (a.x0 > b.x1 + 6 || b.x0 > a.x1 + 6) continue;
+          const gap = (a.h + b.h) / 2 + 5 - (b.cy - a.cy);
+          if (gap > 0) {
+            a.cy -= gap / 2;
+            b.cy += gap / 2;
+            moved = true;
+          }
         }
-        el.style.transform = `translate3d(${l.x.toFixed(1)}px, ${l.y.toFixed(1)}px, 0)`;
-        if (!el.classList.contains('on')) el.classList.add('on');
-      } else if (el.classList.contains('on')) el.classList.remove('on');
+      }
+      for (const a of live) a.cy = Math.min(Math.max(a.cy, top + a.h / 2), bottom - a.h / 2);
+      if (!moved) break;
+    }
+    const k = 1 - Math.exp(-dt * 10);
+    for (const a of live) {
+      const { rec, l } = a;
+      const ty = a.cy - (l.y + a.dy);
+      if (!rec.placed || rec.left !== !a.right) {
+        rec.sx = a.tx;
+        rec.sy = ty;
+      } else {
+        rec.sx += (a.tx - rec.sx) * k;
+        rec.sy += (ty - rec.sy) * k;
+      }
+      rec.placed = true;
+      if (rec.left !== !a.right) {
+        rec.left = !a.right;
+        rec.el.classList.toggle('left', rec.left);
+      }
+      this.applyLabelGeom(rec, a.dx + rec.sx, a.dy + rec.sy);
+      rec.el.style.transform = `translate3d(${l.x.toFixed(1)}px, ${l.y.toFixed(1)}px, 0)`;
+      if (!rec.el.classList.contains('on')) rec.el.classList.add('on');
     }
   }
 
