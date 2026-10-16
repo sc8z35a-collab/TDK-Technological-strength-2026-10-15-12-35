@@ -1799,8 +1799,14 @@ export class Culture extends Chapter {
     this.key.position.copy(this.keyPos);
     this.key.target.position.copy(this.keyAim);
     this.key.angle = step === 0 ? 0.34 : step === 1 ? 0.42 : 0.5;
-    if (this.key.shadow) this.key.shadow.autoUpdate = s.keyI > 0.5;
-    if (this.sun.shadow) this.sun.shadow.autoUpdate = s.sunI > 0.02;
+    // A shadow map that was never rendered leaves its sampler2DShadow bound to a
+    // plain colour texture and WebGL rejects every shadow-receiving draw, so
+    // render each map once before letting it freeze.
+    for (const [light, on] of [[this.key, s.keyI > 0.5], [this.sun, s.sunI > 0.02]]) {
+      if (!light.castShadow) continue;
+      light.shadow.autoUpdate = on;
+      if (!on && !light.shadow.map) light.shadow.needsUpdate = true;
+    }
     const rimBase = [ST.stele, ST.table, ST.track][Math.min(step, 2)];
     this.rim.position.set(rimBase + 3, 3.5, -6);
     this.rim.target.position.set(rimBase, 0.8, 0);
