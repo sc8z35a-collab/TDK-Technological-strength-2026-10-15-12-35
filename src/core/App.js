@@ -84,7 +84,7 @@ export class App {
     this.flat = [];
     this.defs.forEach((c, ci) => c.steps.forEach((s, si) => this.flat.push({ chapter: ci, step: si })));
     this.chapters = this.defs.map((def, i) => {
-      const Cls = this.registry[def.id];
+      const Cls = this.registry[def.id] || this.registry.stub;
       return new Cls(this, def, i);
     });
     this.overlay.buildNav(this.defs, this.flat);

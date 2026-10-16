@@ -40,4 +40,6 @@ export const REGISTRY = {
   challenges: Challenges,
   finale: Finale,
   lab: Lab,
+  // Placeholder for a chapter that is in the content but has no scene yet.
+  stub: Stub,
 };
