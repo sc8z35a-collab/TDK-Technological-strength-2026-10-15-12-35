@@ -19,7 +19,7 @@ const result = await build({
   target: ['es2020', 'safari15', 'chrome100'],
   write: false,
   legalComments: 'none',
-  loader: { '.png': 'dataurl', '.jpg': 'dataurl', '.json': 'json' },
+  loader: { '.png': 'dataurl', '.jpg': 'dataurl', '.webp': 'dataurl', '.json': 'json' },
   define: { 'process.env.NODE_ENV': '"production"' },
   logLevel: 'warning',
 });

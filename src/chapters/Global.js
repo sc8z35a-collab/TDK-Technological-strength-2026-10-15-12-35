@@ -9,8 +9,8 @@ import { Chapter } from '../core/Chapter.js';
 import { materials } from '../core/kit.js';
 import { canvasTexture } from '../core/textures.js';
 import { clamp01, damp, easeInOutCubic, easeOutBack, easeOutCubic, latLonToVec3, smoothstep, DEG } from '../core/math.js';
-import landUrl from '../assets/land.png';
-import japanUrl from '../assets/japan.png';
+import landUrl from '../assets/land.webp';
+import japanUrl from '../assets/japan.webp';
 
 const R = 2; // globe radius
 // High-resolution inset (src/assets/japan.png); keep in sync with scripts/gen-japan.mjs.

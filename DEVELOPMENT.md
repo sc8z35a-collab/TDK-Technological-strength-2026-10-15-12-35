@@ -14,6 +14,15 @@ SIZES="844x390,1920x1080" WAIT=6000 node scripts/screenshot.mjs 0.0
 - 撮影はヘッドレスChromium（SwiftShader）なので遅い。`@秒数` でアニメーション時計を早送りできる（`App.skip()`）。
 - `?lab` を付けると開発用の部品ギャラリー章が末尾に追加される（`node scripts/screenshot.mjs "?lab#18.0@1"`）。
 - 公開は GitHub Pages（`docs/` フォルダ）。`docs/index.html` はビルド成果物なので直接編集しない。
+- `node scripts/walkthrough.mjs` で全ステップを順に表示し、コンソールエラーとメモリを記録（`QUALITY=high` で高画質）。
+- `node scripts/gen-og.mjs` でSNS用のプレビュー画像 `docs/og.jpg` を作り直す。
+
+### 地図テクスチャ
+
+`src/assets/land.png`（世界）と `japan.png`（日本の拡大）は Natural Earth（world-atlas）から
+`node scripts/gen-land.mjs` / `node scripts/gen-japan.mjs` で生成するマスター画像です。
+バンドルに入るのは可逆WebP版なので、作り直したら `python3 scripts/to-webp.py`（Pillowが必要）も実行します。
+チャンネルはデータとして使うため、非可逆圧縮（JPEGや非可逆WebP）にはしないでください。
 
 ## ディレクトリ
 
