@@ -132,6 +132,12 @@ function buildAisle(M, quality) {
 }
 
 /** Copper cold plate cut open: pin-fin array, inlet/outlet, coolant particles. */
+/** Point on the tilted elliptical path the AI markets orbit (orbit-group space). */
+function orbitPoint(a, out) {
+  const r = 3.3;
+  return out.set(Math.cos(a) * r, Math.sin(a * 2) * 0.25 + 0.4, Math.sin(a) * r * 0.55);
+}
+
 function buildColdPlate(M, quality) {
   const g = new THREE.Group();
   const cu = new THREE.MeshPhysicalMaterial({ color: 0xc98a5e, metalness: 1, roughness: 0.22, clearcoat: 0.4, clearcoatRoughness: 0.15 });
@@ -387,6 +393,16 @@ export class Ai extends Chapter {
       return { o, a: (i / items.length) * Math.PI * 2 };
     });
     this.orbit = orbit;
+    // The path the markets travel, drawn in when the step opens: one ecosystem
+    // circling the growth columns rather than loose props.
+    const path = [];
+    for (let i = 0; i < 180; i++) path.push(orbitPoint((i / 180) * Math.PI * 2, new THREE.Vector3()));
+    const ringGeo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(path, true), 360, 0.007, 6, true);
+    this.tracker.track(ringGeo);
+    this.ecoRing = new THREE.Mesh(ringGeo, M.copperWire);
+    this.ecoRingTotal = ringGeo.index.count;
+    ringGeo.setDrawRange(0, 0);
+    orbit.add(this.ecoRing);
   }
 
   poses() {
@@ -394,7 +410,7 @@ export class Ai extends Chapter {
       { pos: [3.4, 1.55, 0.2], target: [-2.6, 1.15, 0], fov: 40, dur: 2.2 },
       { pos: [CHAIN.x - 2.4, 6.6, 11.4], target: [CHAIN.x - 0.7, 0.3, 0.2], fov: 34, dur: 3.0 },
       { pos: [COOL.x + 2.8, 3.4, 3.8], target: [COOL.x + 0.2, 0.4, 0], fov: 32, dur: 3.0 },
-      { pos: [GROW.x + 1.2, 3.9, 11.6], target: [GROW.x + 0.5, 1.7, 0], fov: 32, dur: 3.0 },
+      { pos: [GROW.x + 0.9, 3.4, 9.6], target: [GROW.x + 0.45, 1.65, 0], fov: 32, dur: 3.0 },
     ];
   }
 
@@ -434,10 +450,13 @@ export class Ai extends Chapter {
       const k = this.step === 3 ? easeOutCubic(clamp01((st - 0.6 - c.i * 0.35) / 1.2)) : 0;
       c.m.scale.y = Math.max(0.0001, damp(c.m.scale.y, c.v * 0.9 * k, 6, dt));
     }
+    const rk = this.step === 3 ? easeOutCubic(clamp01((st - 0.5) / 1.8)) : 0;
+    const rn = Math.floor(this.ecoRingTotal * rk);
+    this.ecoRing.geometry.setDrawRange(0, rn - (rn % 3));
+    this.ecoRing.visible = rn > 0;
     this.orbitItems.forEach((it, i) => {
       const a = it.a + t * 0.25;
-      const r = 3.3;
-      it.o.position.set(Math.cos(a) * r, Math.sin(a * 2) * 0.25 + 0.4, Math.sin(a) * r * 0.55);
+      orbitPoint(a, it.o.position);
       it.o.rotation.y = -a + t * 0.3;
       const s = this.step === 3 ? easeOutBack(clamp01((st - 1.0 - i * 0.15) / 0.6)) : 0;
       it.o.scale.setScalar(Math.max(0.0001, s * 1.05));
