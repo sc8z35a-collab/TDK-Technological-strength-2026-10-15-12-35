@@ -479,7 +479,7 @@ export class Power extends Chapter {
   poses() {
     return [
       { pos: [4.4, 6.0, 6.0], target: [-0.1, 0.9, 0.1], fov: 32, dur: 2.2 },
-      { pos: [PSU.x + 4.6, 2.5, 4.6], target: [PSU.x + 0.9, 1.25, 0], fov: 32, dur: 2.8 },
+      { pos: [PSU.x + 3.1, 2.6, 5.9], target: [PSU.x + 0.7, 1.2, 0], fov: 32, dur: 2.8 },
       { pos: [FAB.x + 3.6, 2.9, 7.4], target: [FAB.x + 1.0, 1.3, 0.3], fov: 32, dur: 2.8 },
     ];
   }

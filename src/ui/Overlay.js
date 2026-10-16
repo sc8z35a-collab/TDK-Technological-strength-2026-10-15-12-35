@@ -467,6 +467,8 @@ export class Overlay {
   }
   showHint(on) {
     this.hint.classList.toggle('on', on);
+    // The hint sits where the chapter numeral is drawn; let it have the corner.
+    this.mark.classList.toggle('dim', !!on);
   }
   updateRotate() {
     const show = this.app.layout.portrait && this.app.quality.device.mobile && !this.rotateDismissed;

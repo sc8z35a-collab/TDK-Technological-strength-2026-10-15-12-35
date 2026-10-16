@@ -278,6 +278,10 @@ button {
   bottom: calc(var(--safe-b) + 50px);
   z-index: 3;
   pointer-events: none;
+  transition: opacity 0.8s var(--ease);
+}
+.chapter-mark.dim {
+  opacity: 0;
 }
 .chapter-mark .cm {
   position: absolute;

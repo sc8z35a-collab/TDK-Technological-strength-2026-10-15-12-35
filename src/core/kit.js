@@ -374,6 +374,8 @@ export function withDissolve(base, { edgeColor = 0xff9a50, edgeWidth = 0.07, sca
     uEdgeIntensity: { value: intensity },
     uDsDir: { value: new THREE.Vector4(dir[0], dir[1], dir[2], sweep) },
     uDsSpan: { value: span },
+    // 0..1: modulates the emissive with fbm so hot material glows unevenly.
+    uGlowNoise: { value: 0 },
   };
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, u);
@@ -385,7 +387,7 @@ export function withDissolve(base, { edgeColor = 0xff9a50, edgeWidth = 0.07, sca
         '#include <common>',
         `#include <common>
 varying vec3 vDsPos;
-uniform float uReveal, uEdgeWidth, uDsScale, uEdgeIntensity, uDsSpan;
+uniform float uReveal, uEdgeWidth, uDsScale, uEdgeIntensity, uDsSpan, uGlowNoise;
 uniform vec3 uEdgeColor;
 uniform vec4 uDsDir;
 ${DS_NOISE}`
@@ -400,9 +402,17 @@ ${DS_NOISE}`
   if (dsN > dsT) discard;
   float dsEdge = 1.0 - smoothstep(0.0, uEdgeWidth, dsT - dsN);`
       )
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += uEdgeColor * dsEdge * uEdgeIntensity;');
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+  if (uGlowNoise > 0.0) {
+    float gn = dsFbm(vDsPos * 7.3 + vec3(3.1, 1.7, 5.2));
+    totalEmissiveRadiance *= mix(1.0, 0.25 + 1.6 * gn * gn, uGlowNoise);
+  }
+  totalEmissiveRadiance += uEdgeColor * dsEdge * uEdgeIntensity;`
+      );
   };
-  m.customProgramCacheKey = () => 'dissolve-v1';
+  m.customProgramCacheKey = () => 'dissolve-v2';
   m.dissolve = u;
   return m;
 }

@@ -64,7 +64,8 @@ export function powderMaterial() {
         float spec = pow(max(dot(n, h), 0.0), 36.0);
         float rim = pow(1.0 - n.z, 3.0);
         vec3 col = vColor * (0.14 + diff * 1.5) + vec3(1.0, 0.93, 0.84) * spec * 0.7 + vec3(0.66, 0.72, 0.84) * rim * 0.16;
-        col += vec3(1.0, 0.45, 0.12) * vHeat * 2.5;
+        // Incandescence: deep orange that only nears yellow at the hottest grains.
+        col = col * (1.0 - vHeat * 0.75) + mix(vec3(1.0, 0.2, 0.035), vec3(1.0, 0.38, 0.08), vHeat * vHeat) * vHeat * 1.45;
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -97,6 +98,12 @@ export function heatColor(k, out = new THREE.Color()) {
   const t = clamp01(k);
   out.setRGB(1.0, lerp(0.1, 0.5, t * t), lerp(0.02, 0.16, t * t * t));
   return out;
+}
+
+/** Deeper ramp for kiln-hot ceramic seen through a filmic tonemapper (stays orange). */
+function kilnColor(k, out) {
+  const t = clamp01(k);
+  return out.setRGB(1.0, lerp(0.06, 0.34, t * t), lerp(0.01, 0.07, t * t * t));
 }
 
 export class Prologue extends Chapter {
@@ -134,7 +141,7 @@ export class Prologue extends Chapter {
     this.scene.add(this.pivot);
 
     const coreGeo = toroidCore({ ...CORE, bevel: 0.07 });
-    this.coreMat = withDissolve(M.ferriteGlow, { edgeColor: 0xffa055, edgeWidth: 0.09, scale: 4.2, intensity: 7 });
+    this.coreMat = withDissolve(M.ferriteGlow, { edgeColor: 0xffa055, edgeWidth: 0.09, scale: 4.2, intensity: 3.2 });
     this.core = new THREE.Mesh(coreGeo, this.coreMat);
     this.pivot.add(this.core);
     this.tracker.track(coreGeo);
@@ -232,11 +239,14 @@ export class Prologue extends Chapter {
 
     this.coreMat.dissolve.uReveal.value = reveal;
     const glow = heat * smoothstep(2.7, 3.6, T);
-    heatColor(glow, this._heat);
+    kilnColor(glow, this._heat);
     this.coreMat.emissive.copy(this._heat);
-    this.coreMat.emissiveIntensity = 1.7 * glow * glow;
-    this.coreMat.dissolve.uEdgeColor.value.copy(this._heat).multiplyScalar(0.6 + glow);
-    this.heatLight.intensity = 6 * glow * glow;
+    this.coreMat.emissiveIntensity = 1.55 * glow * glow;
+    // Hot spots fade out last: the glow gets patchier as the part cools.
+    this.coreMat.dissolve.uGlowNoise.value = 0.55 + 0.35 * (1 - glow);
+    this.coreMat.dissolve.uEdgeColor.value.copy(this._heat).multiplyScalar(0.5 + glow);
+    this.heatLight.color.copy(this._heat);
+    this.heatLight.intensity = 3.5 * glow * glow;
 
     const n = Math.floor(this.windTotal * wind);
     this.windGeo.setDrawRange(0, n - (n % 3));
@@ -246,8 +256,8 @@ export class Prologue extends Chapter {
     this.lead.geometry.setDrawRange(0, ln - (ln % 3));
     if (T > 9) this.assembled = true;
 
-    this.backdrop.material.uniforms.uGlowStrength.value = 0.9 + glow * 1.6;
-    this.backdrop.material.uniforms.uGlow.value.setRGB(0.17 + glow * 0.25, 0.13 + glow * 0.07, 0.1);
+    this.backdrop.material.uniforms.uGlowStrength.value = 0.9 + glow * 0.45;
+    this.backdrop.material.uniforms.uGlow.value.setRGB(0.17 + glow * 0.14, 0.13 + glow * 0.03, 0.1 - glow * 0.02);
 
     const settle = easeOutCubic(clamp01(T / 7));
     this.pivot.rotation.y = 0.9 * (1 - settle) - 0.5 + t * 0.1;
