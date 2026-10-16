@@ -151,6 +151,8 @@ export class Input {
       this.h.menu?.();
     } else if (k === 'i' || k === 'I') {
       this.h.details?.();
+    } else if (k === 'p' || k === 'P') {
+      this.h.play?.();
     }
   }
 }

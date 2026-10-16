@@ -184,7 +184,7 @@ button {
   align-items: center;
   gap: 12px;
   padding: calc(var(--safe-t) + 12px) calc(var(--safe-r) + var(--pad)) 0 calc(var(--safe-l) + var(--pad));
-  z-index: 10;
+  z-index: 10;  transition: opacity 0.6s var(--ease);
 }
 .brand {
   display: flex;
@@ -690,11 +690,75 @@ html.portrait #ui[data-tone='light'] .scrim {
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto auto;
   align-items: center;
   gap: 14px;
   padding: 0 calc(var(--safe-r) + var(--pad)) calc(var(--safe-b) + 12px) calc(var(--safe-l) + var(--pad));
   z-index: 10;
+  transition: opacity 0.6s var(--ease);
+}
+/* Autoplay button: play/pause glyph with a ring that fills while the step plays. */
+.rail-play {
+  position: relative;
+}
+.rail-play .ring {
+  position: absolute;
+  inset: -2px;
+  width: calc(100% + 4px);
+  height: calc(100% + 4px);
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+.rail-play .ring circle {
+  fill: none;
+  stroke: var(--copper-2);
+  stroke-width: 1.6;
+  stroke-dasharray: 110;
+  stroke-dashoffset: calc(110px * (1 - var(--p, 0)));
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.rail-play.playing .ring circle {
+  opacity: 1;
+}
+.rail-play .i-play {
+  fill: currentColor;
+  stroke: none;
+}
+.rail-play .i-pause,
+.rail-play.playing .i-play {
+  display: none;
+}
+.rail-play.playing .i-pause {
+  display: inline;
+}
+.rail-play.playing {
+  border-color: var(--copper);
+}
+.cap-cta2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cap-cta2 svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+  margin-left: -3px;
+}
+/* Cinema (autoplay): quieter chrome so the scenes carry the story. */
+html.cinema .topbar,
+html.cinema .rail {
+  opacity: 0.5;
+}
+html.cinema .topbar:hover,
+html.cinema .rail:hover,
+html.cinema .topbar:focus-within,
+html.cinema .rail:focus-within {
+  opacity: 1;
+}
+html.cinema .hint {
+  display: none;
 }
 .ruler {
   position: relative;

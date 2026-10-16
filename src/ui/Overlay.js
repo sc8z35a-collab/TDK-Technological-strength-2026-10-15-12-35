@@ -89,6 +89,7 @@ export class Overlay {
       <button class="ic-btn rail-prev" aria-label="前へ"><svg viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></svg></button>
       <div class="ruler"><div class="ruler-track"></div><div class="ruler-marker"></div></div>
       <div class="rail-count"><b class="rc-cur">01</b><span>/</span><span class="rc-total">00</span></div>
+      <button class="ic-btn rail-play" aria-label="自動再生" aria-pressed="false" title="自動再生 (P)"><svg class="ring" viewBox="0 0 38 38"><circle cx="19" cy="19" r="17.5"/></svg><svg class="ico" viewBox="0 0 24 24"><path class="i-play" d="M9.2 6.8l8.6 5.2-8.6 5.2z"/><path class="i-pause" d="M9.6 7.2v9.6M14.4 7.2v9.6"/></svg></button>
       <button class="ic-btn rail-next" aria-label="次へ"><svg viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></svg></button>`;
     r.appendChild(this.rail);
 
@@ -133,6 +134,8 @@ export class Overlay {
     this.top.querySelector('.btn-details').addEventListener('click', () => this.toggleDetails());
     this.rail.querySelector('.rail-prev').addEventListener('click', () => app.navigate(-1, true));
     this.rail.querySelector('.rail-next').addEventListener('click', () => app.navigate(1, true));
+    this.playBtn = this.rail.querySelector('.rail-play');
+    this.playBtn.addEventListener('click', () => app.setAutoplay(!app.auto.on));
     this.panel.querySelector('.panel-close').addEventListener('click', () => this.closePanel());
     this.menu.querySelector('.menu-close').addEventListener('click', () => this.closeMenu());
     this.menu.addEventListener('click', (e) => {
@@ -254,12 +257,14 @@ export class Overlay {
     if (stepDef.note) html += `<p class="note">${stepDef.note}</p>`;
     const actions = [];
     if (stepDef.cta) actions.push(`<button class="pill primary cap-cta">${stepDef.cta}</button>`);
+    if (stepDef.cta2) actions.push(`<button class="pill cap-cta2"><svg viewBox="0 0 24 24"><path d="M9.2 6.8l8.6 5.2-8.6 5.2z"/></svg>${stepDef.cta2}</button>`);
     if (chapter.details) actions.push(`<button class="pill cap-more">詳しく見る</button>`);
     if (actions.length) html += `<div class="cap-actions">${actions.join('')}</div>`;
     c.innerHTML = html;
     this.captionWrap.appendChild(c);
     c.querySelector('.cap-more')?.addEventListener('click', () => this.openDetails());
     c.querySelector('.cap-cta')?.addEventListener('click', () => this.app.onCta(stepDef));
+    c.querySelector('.cap-cta2')?.addEventListener('click', () => this.app.onCta({ action: stepDef.action2 }));
 
     // count-up numbers
     (stepDef.stats || []).forEach((s, i) => {
@@ -296,6 +301,22 @@ export class Overlay {
       } else if (k.fmt === 'year') k.el.textContent = String(Math.round(v));
       else k.el.textContent = formatNumber(v, k.dec);
     }
+  }
+
+  /* ------------------------------------------------------------ autoplay */
+  setPlaying(on) {
+    this.playBtn.classList.toggle('playing', on);
+    this.playBtn.setAttribute('aria-pressed', String(on));
+    this.playBtn.setAttribute('aria-label', on ? '自動再生を止める' : '自動再生');
+    document.documentElement.classList.toggle('cinema', on);
+    this._autoP = -1;
+    this.setAutoProgress(0);
+  }
+  setAutoProgress(p) {
+    p = Math.min(1, Math.max(0, p));
+    if (Math.abs(p - this._autoP) < 0.002) return;
+    this._autoP = p;
+    this.playBtn.style.setProperty('--p', p.toFixed(4));
   }
 
   /* ------------------------------------------------------------ labels */

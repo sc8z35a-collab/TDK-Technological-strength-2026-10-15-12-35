@@ -35,6 +35,8 @@ export const CHAPTERS = [
         lead: '酸化鉄の粉を焼き固めた<em>「フェライト」</em>。1930年に日本で発明されたこの素材から始まった会社が、いまスマホ、クルマ、AIデータセンターの奥深くを支えています。',
         cta: 'はじめる',
         action: 'start',
+        cta2: '自動再生で見る',
+        action2: 'autoplay',
         big: true,
       },
       {
@@ -56,7 +58,8 @@ export const CHAPTERS = [
       <dl class="kv">
         <dt>スマホ</dt><dd>上下スワイプで前後へ／左右ドラッグで立体を回す／タップでラベル</dd>
         <dt>PC</dt><dd>スクロール・矢印キー・スペースで前後へ／ドラッグで回す</dd>
-        <dt>キー</dt><dd>F＝全画面　M＝目次　I＝詳しく　Home/End＝最初/最後</dd>
+        <dt>自動再生</dt><dd>右下の ▶ ボタンか P キーで、読み終わるころに自動で次へ進みます</dd>
+        <dt>キー</dt><dd>F＝全画面　M＝目次　I＝詳しく　P＝自動再生　Home/End＝最初/最後</dd>
       </dl>
       <h3>会社の基本データ</h3>
       <dl class="kv">

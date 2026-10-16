@@ -50,6 +50,7 @@ export class App {
     this.started = false;
     this.ctaDone = false;
     this.transitionDur = 1.35; // seconds; QA scripts may shorten it
+    this.auto = { on: false, t: 0, dur: 10 };
   }
 
   async init() {
@@ -96,6 +97,7 @@ export class App {
       fullscreen: () => this.toggleFullscreen(),
       menu: () => this.overlay.toggleMenu(),
       details: () => this.overlay.toggleDetails(),
+      play: () => this.setAutoplay(!this.auto.on),
       escape: () => {
         this.overlay.closePanel();
         this.overlay.closeMenu();
@@ -217,6 +219,48 @@ export class App {
     this.overlay.setProgressMarker(g, to.chapter, B.def);
     history.replaceState(null, '', `#${to.chapter}.${to.step}`);
     this.prefetch();
+    this.auto.t = 0;
+    this.auto.dur = this.stepDwell();
+  }
+
+  /* ------------------------------------------------------------ autoplay */
+  /** Seconds to stay on the current step in autoplay: enough to read it. */
+  stepDwell() {
+    const f = this.flat[this.g];
+    const s = this.defs[f.chapter].steps[f.step];
+    const len = (t) => (t || '').replace(/<[^>]+>/g, '').replace(/\s+/g, '').length;
+    // ~10 characters per second for the lead, titles and notes skimmed faster.
+    let d = 3 + len(s.lead) / 10 + len(s.title) / 20 + len(s.note) / 25 + (s.stats?.length || 0) * 0.8;
+    d = Math.min(17, Math.max(7, d));
+    // A chapter change spends its first moments in the transition.
+    if (f.step === 0) d += this.transitionDur * 0.6;
+    return d;
+  }
+
+  setAutoplay(on) {
+    if (!this.started) return;
+    on = !!on;
+    if (on && this.g >= this.flat.length - 1) this.goTo(0);
+    this.auto.on = on;
+    this.auto.t = 0;
+    this.auto.dur = this.stepDwell();
+    this.overlay.setPlaying(on);
+    if (on) {
+      this.overlay.showHint(false);
+      this.overlay.toast('自動再生を開始しました。右下のボタン（PCは <b>P</b> キー）で止められます。', 3600);
+    }
+  }
+
+  tickAutoplay(dt) {
+    const a = this.auto;
+    if (!a.on) return;
+    // Hold while the reader has a panel open or is dragging the model.
+    if (this.overlay.isPanelOpen() || this.input.active) return;
+    a.t += dt;
+    this.overlay.setAutoProgress(a.t / a.dur);
+    if (a.t < a.dur) return;
+    if (this.g >= this.flat.length - 1) this.setAutoplay(false);
+    else this.goTo(this.g + 1);
   }
 
   finishTransition() {
@@ -255,6 +299,10 @@ export class App {
   onCta(step) {
     if (step.action === 'start') {
       if (this.quality.device.mobile && !document.fullscreenElement) this.toggleFullscreen(true);
+      this.navigate(1, true);
+    } else if (step.action === 'autoplay') {
+      if (this.quality.device.mobile && !document.fullscreenElement) this.toggleFullscreen(true);
+      this.setAutoplay(true);
       this.navigate(1, true);
     } else if (step.action === 'restart') {
       this.goTo(0);
@@ -320,6 +368,7 @@ export class App {
     }
     this.current.update(dt, this.time);
     this.overlay.updateCounters(dt);
+    this.tickAutoplay(dt);
     const labels = this.current.projectLabels(this.width, this.height);
     this.overlay.updateLabels(labels, dt);
 
