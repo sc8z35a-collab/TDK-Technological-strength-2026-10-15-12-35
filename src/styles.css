@@ -407,7 +407,8 @@ html.portrait #ui[data-tone='light'] .scrim {
   margin: 0;
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: clamp(22px, calc(4.2vh + 1.1vw), 60px);
+  /* Bounded by the caption width so a 12-character line never wraps. */
+  font-size: clamp(22px, min(calc(4.2vh + 1.1vw), calc(min(44vw, 580px) / 12.6)), 60px);
   line-height: 1.3;
   letter-spacing: 0.02em;
   color: var(--paper);
@@ -415,7 +416,7 @@ html.portrait #ui[data-tone='light'] .scrim {
   perspective: 600px;
 }
 .caption.big .title {
-  font-size: clamp(26px, calc(5.4vh + 1.5vw), 78px);
+  font-size: clamp(26px, min(calc(5.4vh + 1.5vw), calc(min(44vw, 580px) / 11.6)), 78px);
   line-height: 1.22;
 }
 .title .word {

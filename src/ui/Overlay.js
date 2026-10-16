@@ -10,27 +10,55 @@ const h = (tag, cls, html) => {
 };
 
 const LATIN = /[A-Za-z0-9.,:%+\-/~°µ×·'’&()]+/y;
+// Kinsoku: characters that may not start a line, and ones that may not end it.
+const NO_START = '、。，．・：；？！ー〜…‥」』）】〉》〕”’ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ';
+const NO_END = '「『（【〈《〔“‘';
 
-/** Split text into animated character spans; Latin runs stay unbreakable. */
+/**
+ * Split text into animated character spans. Latin runs stay unbreakable and
+ * Japanese line-breaking rules are kept by grouping punctuation with its
+ * neighbour (inline-block spans would otherwise let 「。」 start a line).
+ */
 function kinetic(text, base = 0, step = 22) {
   let i = 0;
   let out = '';
+  const span = (ch) => `<span class="ch" style="--i:${base + i++}">${ch}</span>`;
   const lines = String(text).split('\n');
   lines.forEach((line, li) => {
+    const chars = [...line];
     let p = 0;
-    while (p < line.length) {
-      LATIN.lastIndex = p;
-      const m = LATIN.exec(line);
-      if (m && m.index === p) {
-        out += '<span class="word">';
-        for (const ch of m[0]) out += `<span class="ch" style="--i:${base + i++}">${ch}</span>`;
-        out += '</span>';
-        p += m[0].length;
-      } else {
-        const ch = line[p];
-        out += ch === ' ' ? ' ' : `<span class="ch" style="--i:${base + i++}">${ch}</span>`;
-        p += 1;
+    while (p < chars.length) {
+      // One unbreakable unit: [opening brackets] (Latin run | char) [closing punctuation].
+      let unit = '';
+      let n = 0;
+      while (p < chars.length && NO_END.includes(chars[p])) {
+        unit += span(chars[p++]);
+        n++;
       }
+      if (p < chars.length) {
+        LATIN.lastIndex = 0;
+        const rest = chars.slice(p).join('');
+        const m = LATIN.exec(rest);
+        if (m && m.index === 0) {
+          for (const ch of m[0]) unit += span(ch);
+          n += m[0].length;
+          p += [...m[0]].length;
+        } else if (chars[p] === ' ') {
+          if (!n) {
+            out += ' ';
+            p++;
+            continue;
+          }
+        } else {
+          unit += span(chars[p++]);
+          n++;
+        }
+      }
+      while (p < chars.length && NO_START.includes(chars[p])) {
+        unit += span(chars[p++]);
+        n++;
+      }
+      out += n > 1 ? `<span class="word">${unit}</span>` : unit;
     }
     if (li < lines.length - 1) out += '<br>';
   });
