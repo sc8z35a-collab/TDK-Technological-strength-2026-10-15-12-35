@@ -133,7 +133,7 @@ export class Overlay {
     this.menu = h('div', 'menu');
     this.menu.innerHTML = `
       <div class="menu-inner">
-        <div class="menu-head"><span class="menu-kicker">CONTENTS</span><h2>目次</h2><button class="ic-btn menu-close" aria-label="閉じる"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="menu-head"><span class="menu-kicker">CONTENTS</span><h2>目次</h2><button class="pill menu-share" type="button"><svg viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M6 12v7h12v-7"/></svg>共有</button><button class="ic-btn menu-close" aria-label="閉じる"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
         <ol class="menu-list"></ol>
         <div class="menu-foot">
           <div class="menu-quality"><span>画質</span><button data-q="auto">自動</button><button data-q="high">高</button><button data-q="mid">標準</button><button data-q="low">軽量</button></div>
@@ -169,7 +169,8 @@ export class Overlay {
     this.menu.addEventListener('click', (e) => {
       if (e.target === this.menu) this.closeMenu();
     });
-    this.menu.querySelectorAll('.menu-quality button').forEach((b) =>
+    this.menu.querySelector('.menu-share').addEventListener('click', () => this.share());
+    this.menu.querySelectorAll('.menu-quality button[data-q]').forEach((b) =>
       b.addEventListener('click', () => {
         app.setQuality(b.dataset.q);
         this.syncQuality();
@@ -237,7 +238,7 @@ export class Overlay {
 
   syncQuality() {
     const q = this.app.quality.mode;
-    this.menu.querySelectorAll('.menu-quality button').forEach((b) => b.classList.toggle('on', b.dataset.q === q));
+    this.menu.querySelectorAll('.menu-quality button[data-q]').forEach((b) => b.classList.toggle('on', b.dataset.q === q));
   }
 
   toggleMenu() {
@@ -492,6 +493,24 @@ export class Overlay {
   }
 
   /* ------------------------------------------------------------ misc */
+  /** Shares a link to the current chapter/step (Web Share, else clipboard). */
+  async share() {
+    const url = location.href;
+    const c = this.currentChapter;
+    const data = { title: 'TDK Technology Atlas 2026', text: c ? `${c.nav}｜TDKの技術と世界シェアを3Dで（非公式の学習サイト）` : '', url };
+    try {
+      if (navigator.share) {
+        await navigator.share(data);
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      this.toast('このページのリンクをコピーしました。', 2600);
+    } catch (e) {
+      // A cancelled share sheet rejects with AbortError; nothing to report then.
+      if (e && e.name === 'AbortError') return;
+      this.toast(`リンク：<b>${url.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</b>`, 6000);
+    }
+  }
   toast(msg, ms = 4200) {
     this.toastEl.innerHTML = msg;
     this.toastEl.classList.add('on');

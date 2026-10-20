@@ -1161,6 +1161,22 @@ html.portrait .tick span {
   font-size: 12px;
   cursor: pointer;
 }
+.menu-share {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+}
+.menu-share svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .menu-quality button.on {
   border-color: #c58a5c;
   background: rgba(197, 138, 92, 0.16);
