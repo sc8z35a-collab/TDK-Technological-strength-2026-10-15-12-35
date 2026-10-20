@@ -56,7 +56,9 @@
 
 ## 公開（GitHub Pages）
 
-`docs/index.html` は three.js を含む単一のHTMLファイルです。リポジトリの **Settings → Pages** で、Source を「Deploy from a branch」、ブランチを `main`（またはこのブランチ）、フォルダを `/docs` にすると公開されます。ファイルを直接ブラウザで開いても動きます。
+公開URL：**https://sc8z35a-collab.github.io/TDK-Technological-strength-2026-10-15-12-35/**
+
+`docs/index.html` は three.js を含む単一のHTMLファイルです。リポジトリの **Settings → Pages** で、Source を「Deploy from a branch」、ブランチを `main` にすると公開されます。フォルダは `/docs` がおすすめですが、`/(root)` のままでもルートの `index.html` が `docs/` へ自動で移動します。ファイルを直接ブラウザで開いても動きます。
 
 ## 開発
 

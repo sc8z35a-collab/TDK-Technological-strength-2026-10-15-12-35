@@ -2,6 +2,7 @@
 // scene at high quality with the navigation chrome hidden.
 //   node scripts/gen-og.mjs   (after node scripts/build.mjs)
 import { chromium } from 'playwright-core';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,5 +20,8 @@ await page.evaluate(() => window.__atlas.skip(10.5));
 await page.addStyleTag({ content: '.rail,.hint,.labels,.cap-actions,.top-actions,.top-chapter,.chapter-mark,.toast{display:none!important}' });
 await page.waitForTimeout(5000);
 await page.screenshot({ path: path.join(root, 'docs/og.jpg'), type: 'jpeg', quality: 90 });
+// Same image at the repository root, so the og:image URL also resolves when
+// GitHub Pages publishes the root (index.html there forwards to docs/).
+fs.copyFileSync(path.join(root, 'docs/og.jpg'), path.join(root, 'og.jpg'));
 await browser.close();
 console.log('docs/og.jpg written');

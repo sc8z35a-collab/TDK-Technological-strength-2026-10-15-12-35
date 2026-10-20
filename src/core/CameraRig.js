@@ -24,9 +24,11 @@ export class CameraRig {
     this.pitch = new Spring(0, 60, 2 * Math.sqrt(60) * 0.9);
     this.dragging = false;
     this.dragLimit = { yaw: 0.7, pitch: 0.35 };
-    this.swayAmount = 1;
+    // "Reduce motion" turns off the idle breathing and pointer parallax.
+    const calm = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.swayAmount = calm ? 0 : 1;
     this.parallax = new THREE.Vector2();
-    this.parallaxAmount = 0.12;
+    this.parallaxAmount = calm ? 0 : 0.12;
     this.shiftX = 0;
     this.shiftY = 0;
     this.width = 1;
