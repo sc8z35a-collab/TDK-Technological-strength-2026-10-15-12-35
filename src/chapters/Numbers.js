@@ -94,18 +94,48 @@ export class Numbers extends Chapter {
     const ink = '#3a3d43';
 
     /* --- skyline -------------------------------------------------------------- */
+    // One instanced draw for the 70 years; a graphite → steel → copper ramp
+    // reads as time on the white set. The record year is its own copper bar.
     const barGeo = roundedBox(0.09, 1, 0.34, 0.025, 2);
     barGeo.translate(0, 0.5, 0);
     this.tracker.track(barGeo);
+    const skyMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.36, metalness: 0.3, clearcoat: 0.5, clearcoatRoughness: 0.22 });
+    this.tracker.track(skyMat);
+    const past = SALES.filter(([y]) => y !== 2026);
+    this.skyIM = new THREE.InstancedMesh(barGeo, skyMat, past.length);
+    this.skyIM.castShadow = this.skyIM.receiveShadow = true;
+    this.skyIM.frustumCulled = false;
+    this.add(this.skyIM);
+    const RAMP = [[1956, new THREE.Color(0x4a4744)], [1996, new THREE.Color(0x8a8f96)], [2025, new THREE.Color(0xcf9a72)]];
+    const tint = (y, out) => {
+      const [a, b] = y < RAMP[1][0] ? [RAMP[0], RAMP[1]] : [RAMP[1], RAMP[2]];
+      return out.copy(a[1]).lerp(b[1], clamp01((y - a[0]) / (b[0] - a[0])));
+    };
+    const col = new THREE.Color();
+    this.lastBar = new THREE.Mesh(barGeo, copper);
+    this.lastBar.position.set(skyX(2026), 0, 0);
+    this.lastBar.scale.y = 0.0001;
+    this.lastBar.castShadow = this.lastBar.receiveShadow = true;
+    this.add(this.lastBar);
     this.bars = SALES.map(([y, v], i) => {
       const last = y === 2026;
-      const m = new THREE.Mesh(barGeo, last ? copper : M.porcelain);
-      m.position.set(skyX(y), 0, 0);
-      m.scale.y = 0.0001;
-      m.castShadow = m.receiveShadow = true;
-      this.add(m);
-      return { m, h: Math.max(0.006, (v / 25048) * SKY.H), t: 0.35 + i * 0.065, y, v };
+      const idx = last ? -1 : past.findIndex((p) => p[0] === y);
+      if (!last) this.skyIM.setColorAt(idx, tint(y, col));
+      return { idx, x: skyX(y), h: Math.max(0.006, (v / 25048) * SKY.H), t: 0.35 + i * 0.065, y, v, k: 0 };
     });
+    this.skyIM.instanceColor.needsUpdate = true;
+    this.skyM4 = new THREE.Matrix4();
+    const barTop = (y) => {
+      const b = this.bars.find((x) => x.y === y);
+      return (out) => out.set(b.x, Math.max(0.05, b.h * b.k) + 0.04, 0.17);
+    };
+    const shown = (y, delay = 0.5) => () => {
+      const b = this.bars.find((x) => x.y === y);
+      return this.step === 0 && b.k > 0.98 && this.stepTime > b.t + 0.7 + delay;
+    };
+    this.label({ text: '1966年', sub: '国産初のカセットテープ', anchor: barTop(1966), offset: [-34, -46], when: shown(1966) });
+    this.label({ text: '2009年3月期', sub: 'リーマン・ショックで営業赤字', anchor: barTop(2009), offset: [-46, -52], when: shown(2009) });
+    this.label({ text: '2026年3月期', sub: '過去最高 2兆5,048億円', anchor: barTop(2026), offset: [-40, 30], when: shown(2026, 0.2), cls: 'big' });
     for (let d = 1960; d <= 2020; d += 10) {
       const tp = textPlane(String(d), { width: 0.7, height: 0.2, px: 256, color: ink, key: `yr${d}` });
       tp.rotation.x = -Math.PI / 2;
@@ -276,12 +306,17 @@ export class Numbers extends Chapter {
     // Skyline: slow dolly while the bars rise year by year.
     if (this.step === 0 && st > 0.25 && !this.dolly) {
       this.dolly = true;
-      this.rig.go({ pos: [5.0, 2.7, 8.6], target: [0.9, 1.4, 0], fov: 30 }, 7.5, easeInOutCubic);
+      this.rig.go({ pos: [4.6, 2.9, 10.4], target: [1.25, 1.55, 0], fov: 30 }, 7.5, easeInOutCubic);
     }
+    const m4 = this.skyM4;
     for (const b of this.bars) {
       const k = this.step === 0 ? easeOutCubic(clamp01((st - b.t) / 0.7)) : this.step > 0 ? 1 : 0;
-      b.m.scale.y = Math.max(0.0001, b.h * (this.barsDone ? 1 : k));
+      b.k = this.barsDone ? 1 : k;
+      const sy = Math.max(0.0001, b.h * b.k);
+      if (b.idx < 0) this.lastBar.scale.y = sy;
+      else this.skyIM.setMatrixAt(b.idx, m4.makeScale(1, sy, 1).setPosition(b.x, 0, 0));
     }
+    this.skyIM.instanceMatrix.needsUpdate = true;
     if (this.step === 0 && st > 0.35 + this.bars.length * 0.065 + 0.8) this.barsDone = true;
 
     // Pairs grow when visible.

@@ -175,6 +175,8 @@ export class Chapter {
     this.tracker.dispose();
     this.scene.traverse((o) => {
       if (o.geometry) o.geometry.dispose?.();
+      // Instanced meshes own GPU buffers for their matrices/colours.
+      if (o.isInstancedMesh) o.dispose();
     });
     this.built = false;
     this.scene = new THREE.Scene();
