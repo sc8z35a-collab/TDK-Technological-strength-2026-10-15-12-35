@@ -384,7 +384,7 @@ export class Overlay {
    * apart vertically. The resolved shift is stored relative to the anchor and
    * eased, so labels glide apart without trailing behind moving objects.
    */
-  updateLabels(labels, dt = 1 / 60) {
+  updateLabels(labels, dt = 1 / 60, hold = false) {
     const W = this.app.width, H = this.app.height;
     const cap = this.capRect;
     const portrait = this.app.layout.portrait;
@@ -397,7 +397,7 @@ export class Overlay {
       const rec = this.labelEls.get(l);
       if (!rec) continue;
       const el = rec.el;
-      let vis = l.visible;
+      let vis = l.visible && !hold;
       // Hide labels whose anchor sits under the caption text.
       if (vis && cap) {
         if (portrait) vis = l.y < cap.top - 4;

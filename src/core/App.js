@@ -374,7 +374,9 @@ export class App {
     this.overlay.updateCounters(dt);
     this.tickAutoplay(dt);
     const labels = this.current.projectLabels(this.width, this.height);
-    this.overlay.updateLabels(labels, dt);
+    // During a chapter transition the new chapter's labels wait until its scene
+    // has mostly replaced the old one, so they never float over the wrong picture.
+    this.overlay.updateLabels(labels, dt, tr && mix < 0.62);
 
     const a = tr ? tr.from : this.current;
     const b = tr ? tr.to : null;
