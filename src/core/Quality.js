@@ -57,6 +57,10 @@ export class Quality {
     if (/mali-g(5|6|7)\d\b|mali-t|adreno \(tm\) (3|4|5)\d\d|powervr/.test(g)) return 'low';
     if (d.mem && d.mem <= 3) return 'low';
     if (/apple gpu/.test(g)) return 'high';
+    // Recent Android flagships (Snapdragon 8 Gen 1 and later, Dimensity / Tensor
+    // with Mali-G710+ or Immortalis, Exynos Xclipse). Effects are shed at runtime
+    // if one of them throttles.
+    if (/adreno \(tm\) (7[3-9]\d|8\d\d)|immortalis|mali-g(7[1-9]\d|9\d\d)|xclipse 9\d\d/.test(g)) return 'high';
     return 'mid';
   }
 
