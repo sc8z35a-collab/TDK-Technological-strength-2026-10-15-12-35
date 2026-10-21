@@ -32,7 +32,8 @@ SIZES="844x390,1920x1080" WAIT=6000 node scripts/screenshot.mjs 0.0
 | `src/core/App.js` | レンダラ、章の切り替え（ディゾルブ遷移）、入力、ループ、全画面 |
 | `src/core/Chapter.js` | 章の基底クラス（シーン・カメラ・ラベル・パラメータ補間） |
 | `src/core/CameraRig.js` | カメラ。ポーズ `{pos, target, fov, dur}` 間を弧を描いて移動、ドラッグで軌道回転 |
-| `src/core/Post.js` | HDRポスト処理（ブルーム、AgXトーンマップ、ビネット、粒状感、遷移） |
+| `src/core/Post.js` | HDRポスト処理（SSAO、被写界深度、ブルーム、AgXトーンマップ、ビネット、粒状感、章の切り替え） |
+| `src/core/Quality.js` | 画質の段階（high / mid / low）の自動選択と、重いときの段階的な軽量化 |
 | `src/core/Env.js` | 環境マップ（`studio` 暗いスタジオ / `gallery` 明るい展示室 / `space` / `dawn`） |
 | `src/core/kit.js` | 材質プリセット `materials()`、形状ヘルパ、`withDissolve()`、`textPlane()` |
 | `src/core/parts.js` | 部品モデル（MLCC、CMF、パワーインダクタ、NTC、ディスク部品、フィルムコン、電解コン、パウチ電池、LGA、電源、基板テクスチャ） |
@@ -57,7 +58,8 @@ export class MyChapter extends Chapter {
     this.env = 'studio';      // 'studio' | 'gallery' | 'space' | 'dawn'
     this.exposure = 1.0;
     this.shift = 0.2;         // 被写体を右へ寄せる量（左側に字幕が出るため）
-    this.look = { bloom: 0.12, threshold: 1.0, vignette: 0.38 }; // ポスト処理の調整
+    this.look = { bloom: 0.12, threshold: 1.0, vignette: 0.38 }; // ポスト処理の調整（下記）
+    this.dofSteps = [0, 0.006];  // ステップごとの被写界深度の強さ（高画質のみ）
   }
   build() {               // 初回表示の直前に1回だけ呼ばれる
     const M = materials();
@@ -78,6 +80,21 @@ export class MyChapter extends Chapter {
 - 1章の中で複数の「ステーション」を x 方向に離して置き（例 x=0, 14, 28…）、ステップごとにカメラを移動させるのが基本形。
 - `this.to(name, target)` / `this.param(name)` は時間で滑らかに補間される可逆パラメータ。戻るボタンでも破綻しない。
 - 1フレームで重い処理をしない。インスタンス数が多いものは `InstancedMesh`。品質は `this.app.quality.tier`（`particles` 係数、`shadows`、`shadowSize`）。
+- 毎フレーム呼ばれる処理（`tick`、ラベルの anchor）で `new THREE.Vector3()` などを作らない。モジュール先頭の一時変数を使い回す。
+
+### ポスト処理（`this.look`）
+
+| キー | 既定値 | 内容 |
+|---|---|---|
+| `bloom` / `threshold` / `knee` / `radius` | 0.1 / 1.15 / 0.7 / 1.0 | 光のにじみ。明るい部分だけが対象 |
+| `vignette` / `grain` / `fringe` | 0.3 / 0.026 / 0.0022 | 周辺減光、粒状感、周辺の色ずれ |
+| `saturation` / `lift` / `gain` | 1.06 / (0,0,0) / (1,1,1) | 色調 |
+| `fade` / `fadeColor` | 0 / 黒 | 全体を色で覆う（明るい章の白など） |
+| `dof` | 0 | 被写界深度。通常は `dofSteps` で指定 |
+| `ao` / `aoRadius` / `aoIntensity` | 1 / 0.055 / 1.3 | SSAOの強さ、半径（カメラから注視点までの距離に対する比）、濃さ |
+
+- SSAO と被写界深度は高画質（high）のみ。自動画質では、遅いときに解像度を少し下げたあと SSAO → 被写界深度の順に外します。
+- 章の切り替え中は、新しい章のラベルは新しい画面が6割ほど広がってから表示されます。
 - 影：`spot(this.scene, { shadow: q.shadows, shadowSize: q.shadowSize })`。シェーダで頂点を動かす物体は `customDepthMaterial` が必要。
 - キャンバスで文字を描くテクスチャは `canvasTexture()`（2の累乗サイズに自動調整、フォント読み込み後に描画される）。
 
