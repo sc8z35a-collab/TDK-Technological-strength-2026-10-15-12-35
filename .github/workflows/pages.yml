@@ -1,0 +1,62 @@
+# Publishes the site to GitHub Pages on every push to main.
+#
+# Works with either Pages setting (Settings → Pages → Build and deployment):
+# - "GitHub Actions": deploys docs/ as the site root (the 3D site opens at the top URL).
+# - "Deploy from a branch": asks GitHub to rebuild the branch site, because pushes
+#   alone were not triggering new builds here.
+name: Publish site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Read the Pages setting
+        id: mode
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mode=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq .build_type 2>/dev/null || echo unknown)
+          echo "Pages build type: ${mode}"
+          echo "build_type=${mode}" >> "$GITHUB_OUTPUT"
+
+      - name: Rebuild the branch site
+        if: steps.mode.outputs.build_type == 'legacy'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds"
+
+      - name: Check out
+        if: steps.mode.outputs.build_type != 'legacy'
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        if: steps.mode.outputs.build_type != 'legacy'
+        uses: actions/configure-pages@v5
+
+      - name: Upload docs/
+        if: steps.mode.outputs.build_type != 'legacy'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy
+        id: deploy
+        if: steps.mode.outputs.build_type != 'legacy'
+        uses: actions/deploy-pages@v4
