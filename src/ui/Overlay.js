@@ -76,10 +76,12 @@ export class Overlay {
 
   build() {
     const r = this.root;
+    // Keep the loader that index.html painted during the download, if any.
+    const painted = r.querySelector(':scope > .loader');
     r.innerHTML = '';
 
-    this.loader = h('div', 'loader');
-    this.loader.innerHTML = `
+    this.loader = painted || h('div', 'loader');
+    if (!painted) this.loader.innerHTML = `
       <div class="loader-inner">
         <div class="loader-mark"><span></span></div>
         <div class="loader-title">TDK TECHNOLOGY ATLAS <em>2026</em></div>
