@@ -2,7 +2,7 @@
 // smooth with dynamic resolution. Manual override: 'auto' | 'high' | 'mid' | 'low'.
 
 const TIERS = {
-  high: { dof: true, dprCap: 2.0, msaa: 4, bloomScale: 0.5, particles: 1.0, shadows: true, shadowSize: 2048, transmission: true },
+  high: { dof: true, ao: true, dprCap: 2.0, msaa: 4, bloomScale: 0.5, particles: 1.0, shadows: true, shadowSize: 2048, transmission: true },
   mid: { dprCap: 1.6, msaa: 4, bloomScale: 0.5, particles: 0.65, shadows: true, shadowSize: 1024, transmission: false },
   low: { dprCap: 1.15, msaa: 0, bloomScale: 0.5, particles: 0.4, shadows: false, shadowSize: 512, transmission: false },
 };
@@ -39,6 +39,8 @@ export class Quality {
     this.autoTier = this.pickTier();
     this.tierName = this.mode === 'auto' ? this.autoTier : this.mode;
     this.scale = 1;
+    // Effects dropped at runtime when the device can't keep up (auto mode only).
+    this.shed = { ao: false, dof: false };
     this.samples = [];
     this.lastChange = 0;
     this.onChange = null;
@@ -55,6 +57,10 @@ export class Quality {
     if (/mali-g(5|6|7)\d\b|mali-t|adreno \(tm\) (3|4|5)\d\d|powervr/.test(g)) return 'low';
     if (d.mem && d.mem <= 3) return 'low';
     if (/apple gpu/.test(g)) return 'high';
+    // Recent Android flagships (Snapdragon 8 Gen 1 and later, Dimensity / Tensor
+    // with Mali-G710+ or Immortalis, Exynos Xclipse). Effects are shed at runtime
+    // if one of them throttles.
+    if (/adreno \(tm\) (7[3-9]\d|8\d\d)|immortalis|mali-g(7[1-9]\d|9\d\d)|xclipse 9\d\d/.test(g)) return 'high';
     return 'mid';
   }
 
@@ -71,6 +77,7 @@ export class Quality {
     }
     this.tierName = mode === 'auto' ? this.autoTier : mode;
     this.scale = 1;
+    this.shed = { ao: false, dof: false };
     this.samples.length = 0;
     this.onChange?.();
   }
@@ -80,7 +87,13 @@ export class Quality {
     return Math.max(0.6, dpr * this.scale);
   }
 
-  /** Feed one frame time (ms). Returns true when resolution should change. */
+  /** Post effects currently allowed (tier minus anything shed for speed). */
+  effects() {
+    const t = this.tier;
+    return { ao: !!t.ao && !this.shed.ao, dof: !!t.dof && !this.shed.dof };
+  }
+
+  /** Feed one frame time (ms). Returns true when resolution or effects should change. */
   sample(ms, now) {
     if (this.mode !== 'auto') return false;
     this.samples.push(ms);
@@ -90,9 +103,16 @@ export class Quality {
     this.samples.length = 0;
     if (now - this.lastChange < 2500) return false;
     let changed = false;
-    if (median > 24 && this.scale > 0.55) {
-      this.scale = Math.max(0.55, this.scale - 0.12);
-      changed = true;
+    if (median > 24) {
+      // Slow: first a little resolution, then the costly full-screen passes
+      // (ambient occlusion, then depth of field), then the rest of the resolution.
+      const t = this.tier;
+      if (t.ao && !this.shed.ao && this.scale <= 0.8) this.shed.ao = changed = true;
+      else if (t.dof && !this.shed.dof && this.scale <= 0.68) this.shed.dof = changed = true;
+      else if (this.scale > 0.55) {
+        this.scale = Math.max(0.55, this.scale - 0.12);
+        changed = true;
+      }
     } else if (median < 13 && this.scale < 1) {
       this.scale = Math.min(1, this.scale + 0.08);
       changed = true;

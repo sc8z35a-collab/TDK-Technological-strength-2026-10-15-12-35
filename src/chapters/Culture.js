@@ -637,8 +637,10 @@ const LOOKS = [
     zenith: 0x141a3a, mid: 0x4a4a78, horizon: 0xf0a878, glow: 0xffa060, cloudLit: 0xffb48a, sun: [0.33, 0.012, -1], glowPow: 7, disk: 1, cloud: 1,
   },
   {
-    sky: 1, keyI: 0, sunI: 2.6, sunC: 0xffd2a8, hemiI: 0.85, hemiSky: 0xb4c8ec, hemiGround: 0x3e4a2c, rimI: 0.0, rimC: 0xffffff, envI: 0.75, fog: 0.012, fogC: 0xc8b8b0, exp: 0.95,
-    zenith: 0x22365e, mid: 0x6a84ae, horizon: 0xf2cfae, glow: 0xffc890, cloudLit: 0xffd8b8, sun: [0.75, 0.14, -0.55], glowPow: 6, disk: 0, cloud: 0.7,
+    // Clear morning: a front-left sun models the hills and rakes shadows across
+    // the panel rows; less sky fill and a thin blue haze keep the contrast.
+    sky: 1, keyI: 0, sunI: 3.1, sunC: 0xffe2c0, hemiI: 0.48, hemiSky: 0xa9c0e6, hemiGround: 0x34402a, rimI: 0.0, rimC: 0xffffff, envI: 0.7, fog: 0.0065, fogC: 0xb7c3cf, exp: 0.95,
+    zenith: 0x1d3966, mid: 0x5d82b6, horizon: 0xe8dccb, glow: 0xffe2bd, cloudLit: 0xfff0dc, sun: [-0.62, 0.36, 0.42], glowPow: 8, disk: 0, cloud: 0.6,
   },
 ];
 

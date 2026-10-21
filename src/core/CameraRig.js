@@ -8,6 +8,8 @@ const _off0 = new THREE.Vector3();
 const _off1 = new THREE.Vector3();
 const _tmp = new THREE.Vector3();
 const _q = new THREE.Quaternion();
+const _qk = new THREE.Quaternion();
+const _sph = new THREE.Spherical();
 
 export class CameraRig {
   constructor(camera) {
@@ -24,9 +26,11 @@ export class CameraRig {
     this.pitch = new Spring(0, 60, 2 * Math.sqrt(60) * 0.9);
     this.dragging = false;
     this.dragLimit = { yaw: 0.7, pitch: 0.35 };
-    this.swayAmount = 1;
+    // "Reduce motion" turns off the idle breathing and pointer parallax.
+    const calm = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.swayAmount = calm ? 0 : 1;
     this.parallax = new THREE.Vector2();
-    this.parallaxAmount = 0.12;
+    this.parallaxAmount = calm ? 0 : 0.12;
     this.shiftX = 0;
     this.shiftY = 0;
     this.width = 1;
@@ -98,8 +102,7 @@ export class CameraRig {
         _tmp.lerpVectors(_off0, _off1, k).normalize();
       } else {
         _q.setFromUnitVectors(_off0, _off1);
-        const qk = new THREE.Quaternion().slerp(_q, k);
-        _tmp.copy(_off0).applyQuaternion(qk);
+        _tmp.copy(_off0).applyQuaternion(_qk.identity().slerp(_q, k));
       }
       this.pos.copy(this.target).addScaledVector(_tmp, r0 + (r1 - r0) * k);
       this.fov = f.fov + (to.fov - f.fov) * k;
@@ -122,7 +125,7 @@ export class CameraRig {
     const sway = this.swayAmount;
     const yaw = this.yaw.value + Math.sin(time * 0.21) * 0.025 * sway + this.parallax.x * this.parallaxAmount * 0.5;
     const pitch = this.pitch.value + Math.sin(time * 0.17 + 1.3) * 0.015 * sway - this.parallax.y * this.parallaxAmount * 0.3;
-    const sph = new THREE.Spherical().setFromVector3(_off0);
+    const sph = _sph.setFromVector3(_off0);
     sph.theta += yaw;
     sph.phi = clamp(sph.phi + pitch, 0.05, Math.PI - 0.05);
     _off1.setFromSpherical(sph);

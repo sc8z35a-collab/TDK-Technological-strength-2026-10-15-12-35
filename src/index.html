@@ -23,11 +23,23 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+JP:wght@300;400;500;600&family=Shippori+Mincho+B1:wght@500;600;700&display=swap">
 <title>TDK Technology Atlas 2026</title>
 <style>/*__STYLE__*/</style>
+<noscript><style>.loader{display:none}</style></noscript>
 </head>
 <body>
 <div id="app">
   <canvas id="gl" aria-label="3Dビュー"></canvas>
-  <div id="ui" data-tone="dark"></div>
+  <div id="ui" data-tone="dark">
+    <!-- Painted while the (large, single-file) page is still downloading; the app adopts it. -->
+    <div class="loader">
+      <div class="loader-inner">
+        <div class="loader-mark"><span></span></div>
+        <div class="loader-title">TDK TECHNOLOGY ATLAS <em>2026</em></div>
+        <div class="loader-sub">フェライトを焼成しています</div>
+        <div class="loader-meter"><div class="loader-bar"></div></div>
+        <div class="loader-temp"><b>20</b><small>℃</small></div>
+      </div>
+    </div>
+  </div>
 </div>
 <noscript><p style="color:#ece6da;padding:24px">このサイトの表示にはJavaScriptとWebGLが必要です。</p></noscript>
 <script>/*__SCRIPT__*/</script>

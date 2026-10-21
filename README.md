@@ -20,6 +20,7 @@
 | 目次 | ☰ ボタン | `M` キー |
 | 全画面 | ⛶ ボタン | `F` キー |
 | 自動再生 | 右下の ▶ ボタン／最初の画面の「自動再生で見る」 | `P` キー |
+| 共有 | 目次の「共有」（いま見ている章・ステップへのリンク） | 同じ（リンクをコピー） |
 
 自動再生では、文章を読み終わるころに次へ進みます（全体で約17分）。スワイプやキーで動かすとそこから続き、詳しい解説や目次を開いている間は止まります。
 
@@ -56,7 +57,9 @@
 
 ## 公開（GitHub Pages）
 
-`docs/index.html` は three.js を含む単一のHTMLファイルです。リポジトリの **Settings → Pages** で、Source を「Deploy from a branch」、ブランチを `main`（またはこのブランチ）、フォルダを `/docs` にすると公開されます。ファイルを直接ブラウザで開いても動きます。
+公開URL：**https://sc8z35a-collab.github.io/TDK-Technological-strength-2026-10-15-12-35/**
+
+`docs/index.html` は three.js を含む単一のHTMLファイルです。リポジトリの **Settings → Pages** で、Source を「Deploy from a branch」、ブランチを `main` にすると公開されます。フォルダは `/docs` がおすすめですが、`/(root)` のままでもルートの `index.html` が `docs/` へ自動で移動します。ファイルを直接ブラウザで開いても動きます。
 
 ## 開発
 

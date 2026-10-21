@@ -19,7 +19,10 @@ if (process.env.QUALITY) await page.addInitScript((q) => localStorage.setItem('t
 const errors = [];
 page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
 page.on('console', (m) => {
-  if (m.type() === 'error' && !/ERR_FILE_NOT_FOUND|favicon/.test(m.text())) errors.push(`[console] ${m.text()}`);
+  const t = m.text();
+  // WebGL validation failures arrive as warnings but mean dropped draw calls.
+  if (/GL_INVALID|WebGL: /.test(t)) errors.push(`[webgl] ${t.replace(/\[\.WebGL-0x[0-9a-f]+\] /, '').slice(0, 160)}`);
+  else if (m.type() === 'error' && !/ERR_FILE_NOT_FOUND|favicon/.test(t)) errors.push(`[console] ${t}`);
 });
 await page.goto('file://' + path.join(root, 'docs/index.html'));
 await page.waitForFunction(() => window.__atlas && window.__atlas.started, null, { timeout: 90000 });

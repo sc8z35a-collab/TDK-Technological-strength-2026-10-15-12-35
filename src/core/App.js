@@ -24,15 +24,21 @@ const DEFAULT_LOOK = {
   fade: 0,
   fadeColor: new THREE.Color(0x0b0c0e),
   dof: 0,
+  ao: 1,
+  aoRadius: 0.055,
+  aoIntensity: 1.3,
 };
 
-function mixLook(a, b, t) {
-  const o = {};
-  for (const k of Object.keys(DEFAULT_LOOK)) {
+const LOOK_KEYS = Object.keys(DEFAULT_LOOK);
+// Reused every frame (no per-frame allocations: GC pauses read as stutter on phones).
+const LOOK_OUT = {};
+for (const k of LOOK_KEYS) LOOK_OUT[k] = typeof DEFAULT_LOOK[k] === 'number' ? 0 : DEFAULT_LOOK[k].clone();
+
+function mixLook(a, b, t, o = LOOK_OUT) {
+  for (const k of LOOK_KEYS) {
     const va = a[k] ?? DEFAULT_LOOK[k], vb = b[k] ?? DEFAULT_LOOK[k];
     if (typeof va === 'number') o[k] = lerp(va, vb, t);
-    else if (va.isVector3) o[k] = va.clone().lerp(vb, t);
-    else if (va.isColor) o[k] = va.clone().lerp(vb, t);
+    else o[k].copy(va).lerp(vb, t);
   }
   return o;
 }
@@ -84,7 +90,7 @@ export class App {
     this.flat = [];
     this.defs.forEach((c, ci) => c.steps.forEach((s, si) => this.flat.push({ chapter: ci, step: si })));
     this.chapters = this.defs.map((def, i) => {
-      const Cls = this.registry[def.id];
+      const Cls = this.registry[def.id] || this.registry.stub;
       return new Cls(this, def, i);
     });
     this.overlay.buildNav(this.defs, this.flat);
@@ -173,7 +179,8 @@ export class App {
     this.canvas.style.height = `${h}px`;
     const t = this.quality.tier;
     this.renderer.shadowMap.enabled = t.shadows;
-    this.post.setSize(w * pr, h * pr, t.msaa, t.bloomScale, !!t.dof);
+    const fx = this.quality.effects();
+    this.post.setSize(w * pr, h * pr, t.msaa, t.bloomScale, fx.dof, fx.ao);
     this.chapters?.forEach((c) => c.built && c.resize(w, h));
     document.documentElement.classList.toggle('portrait', this.layout.portrait);
     document.documentElement.classList.toggle('compact', this.layout.compact);
@@ -370,7 +377,9 @@ export class App {
     this.overlay.updateCounters(dt);
     this.tickAutoplay(dt);
     const labels = this.current.projectLabels(this.width, this.height);
-    this.overlay.updateLabels(labels, dt);
+    // During a chapter transition the new chapter's labels wait until its scene
+    // has mostly replaced the old one, so they never float over the wrong picture.
+    this.overlay.updateLabels(labels, dt, tr && mix < 0.62);
 
     const a = tr ? tr.from : this.current;
     const b = tr ? tr.to : null;
