@@ -176,7 +176,8 @@ export class App {
     this.canvas.style.height = `${h}px`;
     const t = this.quality.tier;
     this.renderer.shadowMap.enabled = t.shadows;
-    this.post.setSize(w * pr, h * pr, t.msaa, t.bloomScale, !!t.dof, !!t.ao);
+    const fx = this.quality.effects();
+    this.post.setSize(w * pr, h * pr, t.msaa, t.bloomScale, fx.dof, fx.ao);
     this.chapters?.forEach((c) => c.built && c.resize(w, h));
     document.documentElement.classList.toggle('portrait', this.layout.portrait);
     document.documentElement.classList.toggle('compact', this.layout.compact);
