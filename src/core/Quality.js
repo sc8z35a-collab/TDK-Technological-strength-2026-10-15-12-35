@@ -2,7 +2,7 @@
 // smooth with dynamic resolution. Manual override: 'auto' | 'high' | 'mid' | 'low'.
 
 const TIERS = {
-  high: { dof: true, dprCap: 2.0, msaa: 4, bloomScale: 0.5, particles: 1.0, shadows: true, shadowSize: 2048, transmission: true },
+  high: { dof: true, ao: true, dprCap: 2.0, msaa: 4, bloomScale: 0.5, particles: 1.0, shadows: true, shadowSize: 2048, transmission: true },
   mid: { dprCap: 1.6, msaa: 4, bloomScale: 0.5, particles: 0.65, shadows: true, shadowSize: 1024, transmission: false },
   low: { dprCap: 1.15, msaa: 0, bloomScale: 0.5, particles: 0.4, shadows: false, shadowSize: 512, transmission: false },
 };

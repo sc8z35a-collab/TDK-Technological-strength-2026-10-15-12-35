@@ -24,6 +24,9 @@ const DEFAULT_LOOK = {
   fade: 0,
   fadeColor: new THREE.Color(0x0b0c0e),
   dof: 0,
+  ao: 1,
+  aoRadius: 0.055,
+  aoIntensity: 1.3,
 };
 
 function mixLook(a, b, t) {
@@ -173,7 +176,7 @@ export class App {
     this.canvas.style.height = `${h}px`;
     const t = this.quality.tier;
     this.renderer.shadowMap.enabled = t.shadows;
-    this.post.setSize(w * pr, h * pr, t.msaa, t.bloomScale, !!t.dof);
+    this.post.setSize(w * pr, h * pr, t.msaa, t.bloomScale, !!t.dof, !!t.ao);
     this.chapters?.forEach((c) => c.built && c.resize(w, h));
     document.documentElement.classList.toggle('portrait', this.layout.portrait);
     document.documentElement.classList.toggle('compact', this.layout.compact);

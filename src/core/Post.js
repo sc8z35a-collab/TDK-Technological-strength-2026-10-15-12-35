@@ -1,5 +1,6 @@
 // Custom HDR post pipeline:
 //   scene A (and B during chapter transitions) -> MSAA half-float targets
+//   -> screen-space ambient occlusion (high tier: half-res SAO + bilateral blur)
 //   -> physically-flavoured bloom (13-tap downsample / tent upsample mip chain)
 //   -> composite: dissolve transition, AgX tone mapping, vignette, subtle
 //      chromatic fringe, film grain, dithering, sRGB encode.
@@ -52,11 +53,22 @@ const COMMON = /* glsl */ `
   uniform sampler2D tB;
   uniform float uExpA;
   uniform float uExpB;
+  uniform sampler2D tAO;
+  uniform float uAoOn;
   vec2 zoomUv(vec2 uv, float s) { return (uv - 0.5) / s + 0.5; }
+  // Ambient occlusion for scene A; highlights and emissive pixels are spared.
+  float aoAt(vec2 uv, vec3 c) {
+    if (uAoOn <= 0.0) return 1.0;
+    float ao = texture2D(tAO, uv).r;
+    ao = mix(ao, 1.0, smoothstep(1.2, 4.0, max(c.r, max(c.g, c.b))));
+    return mix(1.0, ao, uAoOn);
+  }
   vec3 sceneColor(vec2 uv) {
     float m = transitionMask(uv);
     float ease = uMix * uMix * (3.0 - 2.0 * uMix);
-    vec3 a = texture2D(tA, zoomUv(uv, 1.0 + 0.045 * ease)).rgb * uExpA;
+    vec2 ua = zoomUv(uv, 1.0 + 0.045 * ease);
+    vec3 a = texture2D(tA, ua).rgb * uExpA;
+    a *= aoAt(ua, a);
     if (m <= 0.0) return a;
     vec3 b = texture2D(tB, zoomUv(uv, 1.06 - 0.06 * ease)).rgb * uExpB;
     return mix(a, b, m);
@@ -133,6 +145,89 @@ const UP_FRAG = /* glsl */ `
       + texture2D(tSrc, vUv + vec2(0.0, -t.y)).rgb * 2.0
       + texture2D(tSrc, vUv + vec2(t.x, -t.y)).rgb;
     gl_FragColor = vec4(s / 16.0 * uWeight, 1.0);
+  }
+`;
+
+// Scalable Ambient Obscurance (McGuire et al. 2012), half resolution. View-space
+// positions come from the resolved depth; normals from the flatter neighbour on
+// each axis. The world radius follows the camera-to-subject distance, so macro
+// shots and wide shots both get contact shadows of a plausible size.
+const AO_FRAG = /* glsl */ `
+  varying vec2 vUv;
+  uniform sampler2D tDepth;
+  uniform mat4 uProjInv;
+  uniform vec2 uDepthTexel;
+  uniform vec2 uAoTexel;
+  uniform float uProjScale;
+  uniform float uRadius;
+  uniform float uIntensity;
+  uniform float uBias;
+  uniform float uFar;
+  const int SAMPLES = 11;
+  const float TURNS = 3.0;
+  vec3 viewPos(vec2 uv) {
+    float d = texture2D(tDepth, uv).r;
+    vec4 v = uProjInv * vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
+    return v.xyz / v.w;
+  }
+  float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
+  // Half-res pixels fall between full-res depth texels; snap every lookup to a
+  // texel centre so neighbours are distinct and reconstruction is exact.
+  vec2 snapUv(vec2 uv) { return (floor(uv / uDepthTexel) + 0.5) * uDepthTexel; }
+  void main() {
+    vec2 uv0 = snapUv(vUv);
+    float d0 = texture2D(tDepth, uv0).r;
+    if (d0 >= 0.99999) { gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); return; }
+    vec3 P = viewPos(uv0);
+    vec3 pr = viewPos(uv0 + vec2(uDepthTexel.x, 0.0)), pl = viewPos(uv0 - vec2(uDepthTexel.x, 0.0));
+    vec3 pu = viewPos(uv0 + vec2(0.0, uDepthTexel.y)), pd = viewPos(uv0 - vec2(0.0, uDepthTexel.y));
+    vec3 dx = abs(pr.z - P.z) < abs(P.z - pl.z) ? pr - P : P - pl;
+    vec3 dy = abs(pu.z - P.z) < abs(P.z - pd.z) ? pu - P : P - pd;
+    vec3 N = normalize(cross(dx, dy));
+    if (dot(N, P) > 0.0) N = -N;
+    float r = uRadius, r2 = r * r;
+    float rPx = uProjScale * r / max(-P.z, 1e-3);
+    if (rPx < 1.5) { gl_FragColor = vec4(1.0, -P.z, 0.0, 1.0); return; }
+    rPx = min(rPx, 90.0);
+    float rot = ign(gl_FragCoord.xy) * 6.2831853;
+    float sum = 0.0;
+    for (int i = 0; i < SAMPLES; i++) {
+      float a = (float(i) + 0.5) / float(SAMPLES);
+      float ang = a * TURNS * 6.2831853 + rot;
+      vec2 suv = snapUv(uv0 + vec2(cos(ang), sin(ang)) * (rPx * a) * uAoTexel);
+      if (suv.x <= 0.0 || suv.y <= 0.0 || suv.x >= 1.0 || suv.y >= 1.0) continue;
+      vec3 v = viewPos(suv) - P;
+      float vv = dot(v, v);
+      float f = max(r2 - vv, 0.0);
+      sum += f * f * f * max((dot(v, N) - uBias * r) / (0.01 * r2 + vv), 0.0);
+    }
+    float A = max(0.0, 1.0 - sum * uIntensity * r / (r2 * r2 * r2) * (5.0 / float(SAMPLES)));
+    // Distant surfaces (floor at grazing angles) only add depth-precision noise.
+    A = mix(A, 1.0, smoothstep(uFar * 0.6, uFar, -P.z));
+    gl_FragColor = vec4(A, -P.z, 0.0, 1.0);
+  }
+`;
+
+// Separable depth-aware blur; G carries linear depth (0 = background).
+const AO_BLUR_FRAG = /* glsl */ `
+  varying vec2 vUv;
+  uniform sampler2D tSrc;
+  uniform vec2 uStep;
+  void main() {
+    vec4 c = texture2D(tSrc, vUv);
+    float z = c.g;
+    if (z <= 0.0) { gl_FragColor = c; return; }
+    float W[5] = float[5](0.2270270270, 0.1945945946, 0.1216216216, 0.0540540541, 0.0162162162);
+    float sum = c.r * W[0], wsum = W[0];
+    for (int i = 1; i < 5; i++) {
+      for (int s = -1; s <= 1; s += 2) {
+        vec4 t = texture2D(tSrc, vUv + uStep * float(i * s));
+        float w = W[i] * max(0.0, 1.0 - abs(t.g - z) / z * 24.0);
+        sum += t.r * w;
+        wsum += w;
+      }
+    }
+    gl_FragColor = vec4(sum / wsum, z, 0.0, 1.0);
   }
 `;
 
@@ -320,6 +415,8 @@ export class Post {
       tB: { value: null },
       uExpA: { value: 1 },
       uExpB: { value: 1 },
+      tAO: { value: null },
+      uAoOn: { value: 0 },
     };
     this.shared = sharedUniforms;
 
@@ -400,6 +497,32 @@ export class Post {
       depthTest: false,
       depthWrite: false,
     });
+    this.aoMat = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: AO_FRAG,
+      uniforms: {
+        tDepth: { value: null },
+        uProjInv: { value: new THREE.Matrix4() },
+        uDepthTexel: { value: new THREE.Vector2() },
+        uAoTexel: { value: new THREE.Vector2() },
+        uProjScale: { value: 500 },
+        uRadius: { value: 0.3 },
+        uIntensity: { value: 1.0 },
+        uBias: { value: 0.03 },
+        uFar: { value: 20 },
+      },
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.aoBlurMat = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: AO_BLUR_FRAG,
+      uniforms: { tSrc: { value: null }, uStep: { value: new THREE.Vector2() } },
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.aoEnabled = false;
+    this.aoAmount = 0;
     this.dofEnabled = false;
     this.dofAmount = 0;
     this.compositeMat.uniforms.tDof = { value: null };
@@ -408,10 +531,14 @@ export class Post {
     // The bloom chain starts black until the first frame.
     this.blackTex = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1);
     this.blackTex.needsUpdate = true;
+    this.whiteTex = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+    this.whiteTex.needsUpdate = true;
+    this.shared.tAO.value = this.whiteTex;
   }
 
-  setSize(width, height, msaa, bloomScale, dof = false) {
+  setSize(width, height, msaa, bloomScale, dof = false, ao = false) {
     this.dofEnabled = dof;
+    this.aoEnabled = ao;
     this.width = Math.max(2, Math.floor(width));
     this.height = Math.max(2, Math.floor(height));
     this.msaa = msaa;
@@ -419,7 +546,7 @@ export class Post {
     const w = this.width, h = this.height;
     this.rtA?.dispose();
     this.rtB?.dispose();
-    this.rtA = makeRT(w, h, msaa, true, dof);
+    this.rtA = makeRT(w, h, msaa, true, dof || ao);
     this.rtB = makeRT(w, h, msaa, true, false);
     this.dofSrc?.dispose();
     this.dofOut?.dispose();
@@ -429,6 +556,15 @@ export class Post {
       this.dofOut = makeRT(dw, dh, 0, false);
     } else {
       this.dofSrc = this.dofOut = null;
+    }
+    this.aoA?.dispose();
+    this.aoB?.dispose();
+    if (ao) {
+      const aw = Math.max(2, Math.floor(w / 2)), ah = Math.max(2, Math.floor(h / 2));
+      this.aoA = makeRT(aw, ah, 0, false);
+      this.aoB = makeRT(aw, ah, 0, false);
+    } else {
+      this.aoA = this.aoB = null;
     }
     this.mips.forEach((m) => m.dispose());
     this.mips = [];
@@ -470,6 +606,35 @@ export class Post {
     } else {
       this.shared.tB.value = this.rtA.texture;
       this.shared.uMix.value = 0;
+    }
+
+    // Ambient occlusion for scene A; like DOF it fades out during transitions.
+    const aoTarget = this.aoEnabled && a.camera ? (look.ao ?? 1) * (b && mix > 0 ? 1 - Math.min(1, mix * 3) : 1) : 0;
+    this.aoAmount += (aoTarget - this.aoAmount) * 0.08;
+    if (this.aoEnabled && this.aoAmount > 0.002 && this.rtA.depthTexture) {
+      const cam = a.camera;
+      const am = this.aoMat.uniforms;
+      am.tDepth.value = this.rtA.depthTexture;
+      am.uProjInv.value.copy(cam.projectionMatrixInverse);
+      am.uDepthTexel.value.set(1 / this.width, 1 / this.height);
+      am.uAoTexel.value.set(1 / this.aoA.width, 1 / this.aoA.height);
+      am.uProjScale.value = cam.projectionMatrix.elements[5] * 0.5 * this.aoA.height;
+      am.uRadius.value = Math.min(2.5, Math.max(0.03, (a.focus || 5) * (look.aoRadius ?? 0.055)));
+      am.uFar.value = (a.focus || 5) * 4;
+      am.uIntensity.value = look.aoIntensity ?? 1.0;
+      this.blit(this.aoMat, this.aoA);
+      const bm = this.aoBlurMat.uniforms;
+      bm.tSrc.value = this.aoA.texture;
+      bm.uStep.value.set(1 / this.aoA.width, 0);
+      this.blit(this.aoBlurMat, this.aoB);
+      bm.tSrc.value = this.aoB.texture;
+      bm.uStep.value.set(0, 1 / this.aoA.height);
+      this.blit(this.aoBlurMat, this.aoA);
+      this.shared.tAO.value = this.aoA.texture;
+      this.shared.uAoOn.value = this.aoAmount;
+    } else {
+      this.shared.tAO.value = this.whiteTex;
+      this.shared.uAoOn.value = 0;
     }
 
     const cu = this.compositeMat.uniforms;
@@ -542,6 +707,8 @@ export class Post {
   }
 
   dispose() {
+    this.aoA?.dispose();
+    this.aoB?.dispose();
     this.dofSrc?.dispose();
     this.dofOut?.dispose();
     this.rtA?.dispose();
