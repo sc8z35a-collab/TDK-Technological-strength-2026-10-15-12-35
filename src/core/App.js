@@ -29,13 +29,16 @@ const DEFAULT_LOOK = {
   aoIntensity: 1.3,
 };
 
-function mixLook(a, b, t) {
-  const o = {};
-  for (const k of Object.keys(DEFAULT_LOOK)) {
+const LOOK_KEYS = Object.keys(DEFAULT_LOOK);
+// Reused every frame (no per-frame allocations: GC pauses read as stutter on phones).
+const LOOK_OUT = {};
+for (const k of LOOK_KEYS) LOOK_OUT[k] = typeof DEFAULT_LOOK[k] === 'number' ? 0 : DEFAULT_LOOK[k].clone();
+
+function mixLook(a, b, t, o = LOOK_OUT) {
+  for (const k of LOOK_KEYS) {
     const va = a[k] ?? DEFAULT_LOOK[k], vb = b[k] ?? DEFAULT_LOOK[k];
     if (typeof va === 'number') o[k] = lerp(va, vb, t);
-    else if (va.isVector3) o[k] = va.clone().lerp(vb, t);
-    else if (va.isColor) o[k] = va.clone().lerp(vb, t);
+    else o[k].copy(va).lerp(vb, t);
   }
   return o;
 }
