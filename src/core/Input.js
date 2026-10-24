@@ -1,5 +1,5 @@
-// Unified input: mouse wheel / trackpad, touch swipes, drag-to-orbit, keyboard.
-// Navigation intents are throttled so one gesture moves exactly one step.
+// Unified inspection input: unrestricted orbit, 1–15× wheel/pinch zoom.
+// Phase navigation deliberately lives only in the bottom arrow buttons.
 
 export class Input {
   constructor(el, handlers) {
@@ -7,10 +7,10 @@ export class Input {
     this.h = handlers;
     this.locked = false;
     this.lockUntil = 0;
-    this.wheelAcc = 0;
-    this.lastWheel = 0;
     this.pointer = { x: 0, y: 0 };
     this.active = null;
+    this.points = new Map();
+    this.pinch = null;
     this.enabled = true;
 
     el.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
@@ -34,43 +34,36 @@ export class Input {
   }
 
   onWheel(e) {
-    if (!this.enabled) return;
-    if (this.h.isPanelOpen?.()) return;
+    if (!this.enabled || this.h.isPanelOpen?.()) return;
     e.preventDefault();
-    const t = this.now();
     const dy = e.deltaMode === 1 ? e.deltaY * 32 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
-    const dx = e.deltaMode === 1 ? e.deltaX * 32 : e.deltaX;
-    const d = Math.abs(dy) >= Math.abs(dx) ? dy : dx;
-    // A pause in the wheel stream ends the gesture.
-    if (t - this.lastWheel > 220) this.wheelAcc = 0;
-    this.lastWheel = t;
-    if (!this.canNavigate()) {
-      this.wheelAcc = 0;
-      return;
-    }
-    this.wheelAcc += d;
-    if (Math.abs(this.wheelAcc) > 70) {
-      const dir = Math.sign(this.wheelAcc);
-      this.wheelAcc = 0;
-      this.lock(950);
-      this.h.navigate(dir);
-    }
+    this.h.zoom?.(-dy * 0.0025);
   }
 
   onDown(e) {
-    if (!this.enabled) return;
-    if (e.button !== undefined && e.button !== 0) return;
-    this.active = {
-      id: e.pointerId,
-      x0: e.clientX,
-      y0: e.clientY,
-      x: e.clientX,
-      y: e.clientY,
-      t0: this.now(),
-      mode: null,
-      type: e.pointerType,
-    };
+    if (!this.enabled || (e.button !== undefined && e.button !== 0)) return;
+    this.points.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this.el.setPointerCapture?.(e.pointerId);
+    if (this.points.size === 1) {
+      this.active = {
+        id: e.pointerId,
+        x0: e.clientX,
+        y0: e.clientY,
+        x: e.clientX,
+        y: e.clientY,
+        mode: null,
+        type: e.pointerType,
+      };
+    } else if (this.points.size === 2) {
+      this.pinch = { distance: this.distance() };
+      if (this.active) this.active.mode = 'pinch';
+      this.h.drag?.(0, 0, 'end');
+    }
+  }
+
+  distance() {
+    const [a, b] = [...this.points.values()];
+    return a && b ? Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)) : 1;
   }
 
   onMove(e) {
@@ -79,80 +72,55 @@ export class Input {
       this.pointer.x = (e.clientX / w) * 2 - 1;
       this.pointer.y = (e.clientY / h) * 2 - 1;
     }
+    if (this.points.has(e.pointerId)) this.points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this.points.size >= 2 && this.pinch) {
+      const distance = this.distance();
+      this.h.zoom?.(Math.log(distance / this.pinch.distance));
+      this.pinch.distance = distance;
+      return;
+    }
     const a = this.active;
-    if (!a || a.id !== e.pointerId) return;
+    if (!a || a.id !== e.pointerId || a.mode === 'pinch') return;
     const dx = e.clientX - a.x, dy = e.clientY - a.y;
     a.x = e.clientX;
     a.y = e.clientY;
-    const tx = e.clientX - a.x0, ty = e.clientY - a.y0;
-    if (!a.mode && Math.hypot(tx, ty) > 9) {
-      if (a.type !== 'mouse' && Math.abs(ty) > Math.abs(tx) * 1.1) a.mode = 'swipe';
-      else {
-        a.mode = 'drag';
-        this.h.drag?.(0, 0, 'start');
-      }
+    if (!a.mode && Math.hypot(e.clientX - a.x0, e.clientY - a.y0) > 4) {
+      a.mode = 'drag';
+      this.h.drag?.(0, 0, 'start');
     }
     if (a.mode === 'drag') this.h.drag?.(dx, dy, 'move');
   }
 
   onUp(e, cancel = false) {
+    this.points.delete(e.pointerId);
+    if (this.pinch) {
+      if (this.points.size < 2) {
+        this.pinch = null;
+        this.active = null;
+        this.h.drag?.(0, 0, 'end');
+      }
+      return;
+    }
     const a = this.active;
     if (!a || a.id !== e.pointerId) return;
     this.active = null;
-    const tx = e.clientX - a.x0, ty = e.clientY - a.y0;
-    const dt = Math.max(1, this.now() - a.t0);
-    if (a.mode === 'drag') {
-      this.h.drag?.(0, 0, 'end');
-      // A fast horizontal flick on touch also navigates.
-      if (!cancel && a.type !== 'mouse' && Math.abs(tx) > 90 && Math.abs(tx) / dt > 0.5 && this.canNavigate()) {
-        this.lock(950);
-        this.h.navigate(tx < 0 ? 1 : -1);
-      }
-      return;
-    }
-    if (a.mode === 'swipe') {
-      if (cancel) return;
-      const v = Math.abs(ty) / dt;
-      if ((Math.abs(ty) > 42 || v > 0.35) && this.canNavigate()) {
-        this.lock(950);
-        this.h.navigate(ty < 0 ? 1 : -1);
-      }
-      return;
-    }
-    if (!cancel && dt < 450) {
-      const w = window.innerWidth, h = window.innerHeight;
-      this.h.tap?.((e.clientX / w) * 2 - 1, -(e.clientY / h) * 2 + 1, e);
-    }
+    if (a.mode === 'drag') this.h.drag?.(0, 0, 'end');
+    // A tap never changes the phase and never triggers scene navigation.
   }
 
   onKey(e) {
-    if (!this.enabled) return;
-    if (e.target && /input|textarea|select/i.test(e.target.tagName)) return;
+    if (!this.enabled || (e.target && /input|textarea|select/i.test(e.target.tagName))) return;
     const k = e.key;
     if (k === 'Escape') {
       this.h.escape?.();
       return;
     }
     if (this.h.isPanelOpen?.()) return;
-    const next = ['ArrowDown', 'ArrowRight', 'PageDown', ' ', 'Enter'];
-    const prev = ['ArrowUp', 'ArrowLeft', 'PageUp', 'Backspace'];
-    if (next.includes(k) || prev.includes(k)) {
-      e.preventDefault();
-      if (!this.canNavigate()) return;
-      this.lock(650);
-      this.h.navigate(next.includes(k) ? 1 : -1);
-    } else if (k === 'Home') {
-      this.h.jump?.(0);
-    } else if (k === 'End') {
-      this.h.jump?.(-1);
-    } else if (k === 'f' || k === 'F') {
-      this.h.fullscreen?.();
-    } else if (k === 'm' || k === 'M') {
-      this.h.menu?.();
-    } else if (k === 'i' || k === 'I') {
-      this.h.details?.();
-    } else if (k === 'p' || k === 'P') {
-      this.h.play?.();
-    }
+    if (k === 'f' || k === 'F') this.h.fullscreen?.();
+    else if (k === 'm' || k === 'M') this.h.menu?.();
+    else if (k === 'i' || k === 'I') this.h.details?.();
+    else if (k === '+' || k === '=') this.h.zoom?.(0.22);
+    else if (k === '-' || k === '_') this.h.zoom?.(-0.22);
+    else if (k === '0') this.h.resetView?.();
   }
 }

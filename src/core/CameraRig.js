@@ -25,7 +25,10 @@ export class CameraRig {
     this.yaw = new Spring(0, 60, 2 * Math.sqrt(60) * 0.9);
     this.pitch = new Spring(0, 60, 2 * Math.sqrt(60) * 0.9);
     this.dragging = false;
-    this.dragLimit = { yaw: 0.7, pitch: 0.35 };
+    this.zoom = 1;
+    this.zoomTarget = 1;
+    this.minZoom = 1;
+    this.maxZoom = 15;
     // "Reduce motion" turns off the idle breathing and pointer parallax.
     const calm = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.swayAmount = calm ? 0 : 1;
@@ -70,13 +73,28 @@ export class CameraRig {
   drag(dx, dy, phase) {
     if (phase === 'start') this.dragging = true;
     if (phase === 'end') {
+      // Keep the inspected angle instead of springing back to the authored pose.
       this.dragging = false;
-      this.yaw.target = 0;
-      this.pitch.target = 0;
       return;
     }
-    this.yaw.target = clamp(this.yaw.target - dx * 0.006, -this.dragLimit.yaw, this.dragLimit.yaw);
-    this.pitch.target = clamp(this.pitch.target - dy * 0.004, -this.dragLimit.pitch, this.dragLimit.pitch);
+    this.yaw.target -= dx * 0.006;
+    this.pitch.target -= dy * 0.004;
+  }
+
+  zoomBy(delta) {
+    this.zoomTarget = clamp(this.zoomTarget * Math.exp(delta), this.minZoom, this.maxZoom);
+    return this.zoomTarget;
+  }
+
+  setZoom(value) {
+    this.zoomTarget = clamp(value, this.minZoom, this.maxZoom);
+    return this.zoomTarget;
+  }
+
+  resetView() {
+    this.yaw.target = 0;
+    this.pitch.target = 0;
+    this.zoomTarget = 1;
   }
 
   setViewport(w, h, shiftX = 0, shiftY = 0) {
@@ -118,6 +136,7 @@ export class CameraRig {
     }
     this.yaw.update(dt);
     this.pitch.update(dt);
+    this.zoom = damp(this.zoom, this.zoomTarget, 9, dt);
 
     // Orbit offset around the target.
     _off0.subVectors(this.pos, this.target);
@@ -129,6 +148,7 @@ export class CameraRig {
     sph.theta += yaw;
     sph.phi = clamp(sph.phi + pitch, 0.05, Math.PI - 0.05);
     _off1.setFromSpherical(sph);
+    _off1.multiplyScalar(1 / this.zoom);
     const cam = this.camera;
     cam.position.copy(this.target).add(_off1);
     cam.position.y += Math.sin(time * 0.33) * 0.004 * radius * sway;
