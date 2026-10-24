@@ -1,6 +1,7 @@
 // DOM overlay: loader, captions with kinetic typography, 3D-anchored labels,
 // the ruler-style progress rail, chapter menu, detail panel, toasts.
 import { formatNumber, easeOutExpo, clamp01 } from '../core/math.js';
+import { CinematicFX } from '../core/CinematicFX.js';
 
 const h = (tag, cls, html) => {
   const el = document.createElement(tag);
@@ -104,6 +105,7 @@ export class Overlay {
 
     this.scrim = h('div', 'scrim');
     r.appendChild(this.scrim);
+    this.fx = new CinematicFX(r);
 
     this.mark = h('div', 'chapter-mark');
     r.appendChild(this.mark);
@@ -114,16 +116,26 @@ export class Overlay {
     this.labelsLayer = h('div', 'labels');
     r.appendChild(this.labelsLayer);
 
+    this.viewControls = h('div', 'view-controls');
+    this.viewControls.innerHTML = `
+      <div class="view-readout"><span>360° ORBIT</span><b class="zoom-value">1.0×</b></div>
+      <div class="view-buttons">
+        <button class="ic-btn zoom-out" aria-label="縮小" title="縮小 (-)"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+        <button class="ic-btn view-reset" aria-label="視点をリセット" title="視点リセット (0)"><svg viewBox="0 0 24 24"><path d="M4 11a8 8 0 1 1 2 6M4 5v6h6"/></svg></button>
+        <button class="ic-btn zoom-in" aria-label="拡大" title="拡大 (+)"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button>
+      </div><small>DRAG / PINCH / WHEEL</small>`;
+    r.appendChild(this.viewControls);
+
     this.rail = h('nav', 'rail');
+    this.rail.setAttribute('aria-label', 'フェーズ移動');
     this.rail.innerHTML = `
-      <button class="ic-btn rail-prev" aria-label="前へ"><svg viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></svg></button>
+      <button class="ic-btn phase-arrow rail-prev" aria-label="前のフェーズへ"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg><span>PREV</span></button>
       <div class="ruler"><div class="ruler-track"></div><div class="ruler-marker"></div></div>
       <div class="rail-count"><b class="rc-cur">01</b><span>/</span><span class="rc-total">00</span></div>
-      <button class="ic-btn rail-play" aria-label="自動再生" aria-pressed="false" title="自動再生 (P)"><svg class="ring" viewBox="0 0 38 38"><circle cx="19" cy="19" r="17.5"/></svg><svg class="ico" viewBox="0 0 24 24"><path class="i-play" d="M9.2 6.8l8.6 5.2-8.6 5.2z"/><path class="i-pause" d="M9.6 7.2v9.6M14.4 7.2v9.6"/></svg></button>
-      <button class="ic-btn rail-next" aria-label="次へ"><svg viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></svg></button>`;
+      <button class="ic-btn phase-arrow rail-next" aria-label="次のフェーズへ"><span>NEXT</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>`;
     r.appendChild(this.rail);
 
-    this.hint = h('div', 'hint', `<span class="hint-ico"></span><span class="hint-text">スワイプ・スクロール・矢印キーで進む</span>`);
+    this.hint = h('div', 'hint', `<span class="hint-ico"></span><span class="hint-text">次へ進むには画面下の NEXT 矢印をタップ</span>`);
     r.appendChild(this.hint);
 
     this.panel = h('aside', 'panel');
@@ -164,8 +176,9 @@ export class Overlay {
     this.top.querySelector('.btn-details').addEventListener('click', () => this.toggleDetails());
     this.rail.querySelector('.rail-prev').addEventListener('click', () => app.navigate(-1, true));
     this.rail.querySelector('.rail-next').addEventListener('click', () => app.navigate(1, true));
-    this.playBtn = this.rail.querySelector('.rail-play');
-    this.playBtn.addEventListener('click', () => app.setAutoplay(!app.auto.on));
+    this.viewControls.querySelector('.zoom-in').addEventListener('click', () => app.zoom(0.35));
+    this.viewControls.querySelector('.zoom-out').addEventListener('click', () => app.zoom(-0.35));
+    this.viewControls.querySelector('.view-reset').addEventListener('click', () => app.resetView());
     this.panel.querySelector('.panel-close').addEventListener('click', () => this.closePanel());
     this.menu.querySelector('.menu-close').addEventListener('click', () => this.closeMenu());
     this.menu.addEventListener('click', (e) => {
@@ -236,6 +249,12 @@ export class Overlay {
     this.top.querySelector('.tc-num').textContent = `CH.${String(chapterIndex).padStart(2, '0')}`;
     this.top.querySelector('.tc-name').textContent = chapter.nav;
     this.menuItems?.forEach((li, i) => li.classList.toggle('current', i === chapterIndex));
+    this.rail.querySelector('.rail-prev').disabled = globalIndex <= 0;
+    this.rail.querySelector('.rail-next').disabled = globalIndex >= this.flatLen - 1;
+  }
+
+  setZoom(value) {
+    this.viewControls.querySelector('.zoom-value').textContent = `${value.toFixed(value >= 10 ? 1 : 1)}×`;
   }
 
   syncQuality() {
@@ -257,6 +276,7 @@ export class Overlay {
 
   /* ------------------------------------------------------------ captions */
   showStep(chapter, chapterIndex, stepDef, dir = 1) {
+    this.fx.phase(dir);
     const old = this.captionWrap.querySelectorAll('.caption:not(.out)');
     old.forEach((el) => {
       el.classList.add('out', dir > 0 ? 'out-up' : 'out-down');
@@ -287,8 +307,8 @@ export class Overlay {
     }
     if (stepDef.note) html += `<p class="note">${stepDef.note}</p>`;
     const actions = [];
-    if (stepDef.cta) actions.push(`<button class="pill primary cap-cta">${stepDef.cta}</button>`);
-    if (stepDef.cta2) actions.push(`<button class="pill cap-cta2"><svg viewBox="0 0 24 24"><path d="M9.2 6.8l8.6 5.2-8.6 5.2z"/></svg>${stepDef.cta2}</button>`);
+    if (stepDef.cta && !['start', 'autoplay', 'restart'].includes(stepDef.action)) actions.push(`<button class="pill primary cap-cta">${stepDef.cta}</button>`);
+    if (stepDef.cta2 && stepDef.action2 !== 'autoplay') actions.push(`<button class="pill cap-cta2"><svg viewBox="0 0 24 24"><path d="M9.2 6.8l8.6 5.2-8.6 5.2z"/></svg>${stepDef.cta2}</button>`);
     if (chapter.details) actions.push(`<button class="pill cap-more">詳しく見る</button>`);
     if (actions.length) html += `<div class="cap-actions">${actions.join('')}</div>`;
     c.innerHTML = html;
@@ -336,6 +356,7 @@ export class Overlay {
 
   /* ------------------------------------------------------------ autoplay */
   setPlaying(on) {
+    if (!this.playBtn) return;
     this.playBtn.classList.toggle('playing', on);
     this.playBtn.setAttribute('aria-pressed', String(on));
     this.playBtn.setAttribute('aria-label', on ? '自動再生を止める' : '自動再生');
@@ -427,7 +448,7 @@ export class Overlay {
       const x0 = right ? l.x + dx + 6 : l.x + dx - 6 - rec.bw;
       let tx = 0;
       if (x0 + rec.bw > maxX) tx = maxX - (x0 + rec.bw);
-      if (x0 + tx < minX) tx = minX - x0;
+      if (x0 + tx < minX) tx = minX - tx;
       live.push({ l, rec, right, dx, dy, x0: x0 + tx, x1: x0 + tx + rec.bw, cy: l.y + dy, h: rec.bh, tx });
     }
     // Vertical relaxation between overlapping boxes, then clamp to the safe area.
