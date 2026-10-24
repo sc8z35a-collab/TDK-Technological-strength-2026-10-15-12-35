@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "test": "node scripts/interaction-test.mjs",
     "shot": "node scripts/screenshot.mjs"
   },
   "dependencies": {
