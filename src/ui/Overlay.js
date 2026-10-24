@@ -11,15 +11,9 @@ const h = (tag, cls, html) => {
 };
 
 const LATIN = /[A-Za-z0-9.,:%+\-/~°µ×·'’&()]+/y;
-// Kinsoku: characters that may not start a line, and ones that may not end it.
 const NO_START = '、。，．・：；？！ー〜…‥」』）】〉》〕”’ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ';
 const NO_END = '「『（【〈《〔“‘';
 
-/**
- * Split text into animated character spans. Latin runs stay unbreakable and
- * Japanese line-breaking rules are kept by grouping punctuation with its
- * neighbour (inline-block spans would otherwise let 「。」 start a line).
- */
 function kinetic(text, base = 0, step = 22) {
   let i = 0;
   let out = '';
@@ -29,7 +23,6 @@ function kinetic(text, base = 0, step = 22) {
     const chars = [...line];
     let p = 0;
     while (p < chars.length) {
-      // One unbreakable unit: [opening brackets] (Latin run | char) [closing punctuation].
       let unit = '';
       let n = 0;
       while (p < chars.length && NO_END.includes(chars[p])) {
@@ -77,7 +70,6 @@ export class Overlay {
 
   build() {
     const r = this.root;
-    // Keep the loader that index.html painted during the download, if any.
     const painted = r.querySelector(':scope > .loader');
     r.innerHTML = '';
 
@@ -106,13 +98,10 @@ export class Overlay {
     this.scrim = h('div', 'scrim');
     r.appendChild(this.scrim);
     this.fx = new CinematicFX(r);
-
     this.mark = h('div', 'chapter-mark');
     r.appendChild(this.mark);
-
     this.captionWrap = h('section', 'caption-wrap');
     r.appendChild(this.captionWrap);
-
     this.labelsLayer = h('div', 'labels');
     r.appendChild(this.labelsLayer);
 
@@ -134,7 +123,6 @@ export class Overlay {
       <div class="rail-count"><b class="rc-cur">01</b><span>/</span><span class="rc-total">00</span></div>
       <button class="ic-btn phase-arrow rail-next" aria-label="次のフェーズへ"><span>NEXT</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>`;
     r.appendChild(this.rail);
-
     this.hint = h('div', 'hint', `<span class="hint-ico"></span><span class="hint-text">次へ進むには画面下の NEXT 矢印をタップ</span>`);
     r.appendChild(this.hint);
 
@@ -165,11 +153,9 @@ export class Overlay {
         <button class="pill rotate-go">このまま見る</button>
       </div>`;
     r.appendChild(this.rotate);
-
     this.toastEl = h('div', 'toast');
     r.appendChild(this.toastEl);
 
-    // events
     const app = this.app;
     this.top.querySelector('.btn-menu').addEventListener('click', () => this.toggleMenu());
     this.top.querySelector('.btn-fs').addEventListener('click', () => app.toggleFullscreen());
@@ -198,7 +184,6 @@ export class Overlay {
     this.panel.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
   }
 
-  /* ------------------------------------------------------------ loader */
   setProgress(p) {
     const bar = this.loader.querySelector('.loader-bar');
     const temp = this.loader.querySelector('.loader-temp b');
@@ -210,7 +195,6 @@ export class Overlay {
     setTimeout(() => this.loader.remove(), 1400);
   }
 
-  /* ------------------------------------------------------------ rail & menu */
   buildNav(chapters, flat) {
     const track = this.rail.querySelector('.ruler-track');
     track.innerHTML = '';
@@ -254,7 +238,7 @@ export class Overlay {
   }
 
   setZoom(value) {
-    this.viewControls.querySelector('.zoom-value').textContent = `${value.toFixed(value >= 10 ? 1 : 1)}×`;
+    this.viewControls.querySelector('.zoom-value').textContent = `${value.toFixed(1)}×`;
   }
 
   syncQuality() {
@@ -274,7 +258,6 @@ export class Overlay {
     this.menu.classList.remove('open');
   }
 
-  /* ------------------------------------------------------------ captions */
   showStep(chapter, chapterIndex, stepDef, dir = 1) {
     this.fx.phase(dir);
     const old = this.captionWrap.querySelectorAll('.caption:not(.out)');
@@ -317,7 +300,6 @@ export class Overlay {
     c.querySelector('.cap-cta')?.addEventListener('click', () => this.app.onCta(stepDef));
     c.querySelector('.cap-cta2')?.addEventListener('click', () => this.app.onCta({ action: stepDef.action2 }));
 
-    // count-up numbers
     (stepDef.stats || []).forEach((s, i) => {
       if (s.text !== undefined) return;
       const el = c.querySelector(`.sv-num[data-i="${i}"]`);
@@ -346,7 +328,6 @@ export class Overlay {
       const p = easeOutExpo(clamp01(k.t / k.dur));
       const v = k.from + (k.to - k.from) * p;
       if (k.fmt === 'oku' && v >= 10000) {
-        // 25048 (億円) -> 2兆5,048
         const r = Math.round(v);
         k.el.textContent = `${Math.floor(r / 10000)}兆${formatNumber(r % 10000)}`;
       } else if (k.fmt === 'year') k.el.textContent = String(Math.round(v));
@@ -354,7 +335,6 @@ export class Overlay {
     }
   }
 
-  /* ------------------------------------------------------------ autoplay */
   setPlaying(on) {
     if (!this.playBtn) return;
     this.playBtn.classList.toggle('playing', on);
@@ -371,7 +351,6 @@ export class Overlay {
     this.playBtn.style.setProperty('--p', p.toFixed(4));
   }
 
-  /* ------------------------------------------------------------ labels */
   setLabels(labels) {
     this.labelsLayer.innerHTML = '';
     this.labelEls.clear();
@@ -399,19 +378,13 @@ export class Overlay {
     const c = this.captionWrap.querySelector('.caption:not(.out)');
     this.capRect = c ? c.getBoundingClientRect() : null;
   }
-  /**
-   * Places the 3D-anchored labels: picks the side that fits (never into the
-   * caption), keeps boxes inside the safe area and pushes overlapping boxes
-   * apart vertically. The resolved shift is stored relative to the anchor and
-   * eased, so labels glide apart without trailing behind moving objects.
-   */
+
   updateLabels(labels, dt = 1 / 60, hold = false) {
     const W = this.app.width, H = this.app.height;
     const cap = this.capRect;
     const portrait = this.app.layout.portrait;
     const minX = cap && !portrait ? cap.right + 6 : 8;
     const maxX = W - 8, top = 56;
-    // Portrait stacks the caption under the scene: labels live above it.
     const bottom = portrait && cap ? Math.min(H - 64, cap.top - 8) : H - 64;
     const live = [];
     for (const l of labels) {
@@ -419,7 +392,6 @@ export class Overlay {
       if (!rec) continue;
       const el = rec.el;
       let vis = l.visible && !hold;
-      // Hide labels whose anchor sits under the caption text.
       if (vis && cap) {
         if (portrait) vis = l.y < cap.top - 4;
         else if (l.x < cap.right + 8 && l.y > cap.top - 10 && l.y < cap.bottom + 10) vis = false;
@@ -437,21 +409,18 @@ export class Overlay {
       const ox = Math.abs(l.offset[0]), oy = l.offset[1];
       const need = ox + rec.bw + 8;
       const roomR = maxX - l.x, roomL = l.x - minX;
-      // Preferred side unless it doesn't fit and the other side does better.
       let right = l.offset[0] >= 0;
       if (right && roomR < need && roomL > roomR) right = false;
       else if (!right && roomL < need && roomR > roomL) right = true;
       const fy = l.y + oy < top || l.y + oy > bottom;
       const dx = right ? ox : -ox;
       const dy = fy ? -oy : oy;
-      // Box rectangle in screen space before shifting.
       const x0 = right ? l.x + dx + 6 : l.x + dx - 6 - rec.bw;
       let tx = 0;
       if (x0 + rec.bw > maxX) tx = maxX - (x0 + rec.bw);
-      if (x0 + tx < minX) tx = minX - tx;
+      if (x0 + tx < minX) tx = minX - x0;
       live.push({ l, rec, right, dx, dy, x0: x0 + tx, x1: x0 + tx + rec.bw, cy: l.y + dy, h: rec.bh, tx });
     }
-    // Vertical relaxation between overlapping boxes, then clamp to the safe area.
     for (let it = 0; it < 6; it++) {
       live.sort((a, b) => a.cy - b.cy);
       let moved = false;
@@ -493,7 +462,6 @@ export class Overlay {
     }
   }
 
-  /* ------------------------------------------------------------ panel */
   isPanelOpen() {
     return this.panel.classList.contains('open') || this.menu.classList.contains('open');
   }
@@ -515,8 +483,6 @@ export class Overlay {
     this.panel.classList.remove('open');
   }
 
-  /* ------------------------------------------------------------ misc */
-  /** Shares a link to the current chapter/step (Web Share, else clipboard). */
   async share() {
     const url = location.href;
     const c = this.currentChapter;
@@ -529,7 +495,6 @@ export class Overlay {
       await navigator.clipboard.writeText(url);
       this.toast('このページのリンクをコピーしました。', 2600);
     } catch (e) {
-      // A cancelled share sheet rejects with AbortError; nothing to report then.
       if (e && e.name === 'AbortError') return;
       this.toast(`リンク：<b>${url.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</b>`, 6000);
     }
@@ -542,7 +507,6 @@ export class Overlay {
   }
   showHint(on) {
     this.hint.classList.toggle('on', on);
-    // The hint sits where the chapter numeral is drawn; let it have the corner.
     this.mark.classList.toggle('dim', !!on);
   }
   updateRotate() {
