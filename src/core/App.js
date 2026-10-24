@@ -55,7 +55,7 @@ export class App {
     this.time = 0;
     this.started = false;
     this.ctaDone = false;
-    this.transitionDur = 1.35; // seconds; QA scripts may shorten it
+    this.transitionDur = 1.8; // seconds; QA scripts may shorten it
     this.auto = { on: false, t: 0, dur: 10 };
   }
 
@@ -98,8 +98,8 @@ export class App {
     this.input = new Input(this.canvas, {
       navigate: (d) => this.navigate(d),
       drag: (dx, dy, phase) => this.current.drag(dx, dy, phase),
-      tap: (x, y, e) => this.current.tap(x, y, e),
-      jump: (i) => this.goTo(i < 0 ? this.flat.length - 1 : i),
+      zoom: (delta) => this.zoom(delta),
+      resetView: () => this.resetView(),
       fullscreen: () => this.toggleFullscreen(),
       menu: () => this.overlay.toggleMenu(),
       details: () => this.overlay.toggleDetails(),
@@ -186,6 +186,16 @@ export class App {
     document.documentElement.classList.toggle('compact', this.layout.compact);
     this.overlay?.updateRotate();
     this.overlay?.measureCaption();
+    this.overlay?.fx.resize(w, h);
+  }
+
+  zoom(delta) {
+    if (!this.current) return 1;
+    return this.current.rig.zoomBy(delta);
+  }
+
+  resetView() {
+    this.current?.rig.resetView();
   }
 
   setQuality(mode) {
@@ -208,6 +218,7 @@ export class App {
     const dir = g > this.g ? 1 : -1;
     this.g = g;
     const B = this.chapters[to.chapter];
+    B.rig.resetView();
     if (from.chapter === to.chapter && !this.transition) {
       B.setStep(to.step, false, dir);
     } else {
@@ -244,18 +255,11 @@ export class App {
     return d;
   }
 
-  setAutoplay(on) {
-    if (!this.started) return;
-    on = !!on;
-    if (on && this.g >= this.flat.length - 1) this.goTo(0);
-    this.auto.on = on;
+  setAutoplay() {
+    // Automatic phase changes are disabled: only the bottom arrows navigate.
+    this.auto.on = false;
     this.auto.t = 0;
-    this.auto.dur = this.stepDwell();
-    this.overlay.setPlaying(on);
-    if (on) {
-      this.overlay.showHint(false);
-      this.overlay.toast('自動再生を開始しました。右下のボタン（PCは <b>P</b> キー）で止められます。', 3600);
-    }
+    this.overlay.setPlaying(false);
   }
 
   tickAutoplay(dt) {
@@ -304,15 +308,8 @@ export class App {
   }
 
   onCta(step) {
-    if (step.action === 'start') {
-      if (this.quality.device.mobile && !document.fullscreenElement) this.toggleFullscreen(true);
-      this.navigate(1, true);
-    } else if (step.action === 'autoplay') {
-      if (this.quality.device.mobile && !document.fullscreenElement) this.toggleFullscreen(true);
-      this.setAutoplay(true);
-      this.navigate(1, true);
-    } else if (step.action === 'restart') {
-      this.goTo(0);
+    if (step.action === 'start' || step.action === 'autoplay' || step.action === 'restart') {
+      this.overlay.toast('フェーズを移動するには画面下の矢印を使ってください。', 2800);
     } else if (step.action === 'details') {
       this.overlay.openDetails();
     } else if (step.action === 'menu') {
@@ -374,6 +371,8 @@ export class App {
       tr.from.update(dt, this.time);
     }
     this.current.update(dt, this.time);
+    this.overlay.fx.update(dt, this.time, this.input.pointer);
+    this.overlay.setZoom(this.current.rig.zoom);
     this.overlay.updateCounters(dt);
     this.tickAutoplay(dt);
     const labels = this.current.projectLabels(this.width, this.height);

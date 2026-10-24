@@ -24,7 +24,10 @@ const result = await build({
   logLevel: 'warning',
 });
 let js = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
-const css = fs.readFileSync(path.join(root, 'src/styles.css'), 'utf8');
+const css = [
+  fs.readFileSync(path.join(root, 'src/styles.css'), 'utf8'),
+  fs.readFileSync(path.join(root, 'src/cinematic.css'), 'utf8'),
+].join('\n');
 let html = fs.readFileSync(path.join(root, 'src/index.html'), 'utf8');
 html = html.replace('/*__STYLE__*/', () => css).replace('/*__SCRIPT__*/', () => js);
 fs.writeFileSync(path.join(out, 'index.html'), html);
@@ -33,3 +36,6 @@ console.log(`docs/index.html ${(html.length / 1024).toFixed(0)} KB (js ${(js.len
 
 // PWA icons and manifest.
 await import('./gen-icons.mjs');
+
+// Keep a conventional static-artifact directory for previews and other hosts.
+fs.cpSync(out, path.join(root, 'dist'), { recursive: true });
