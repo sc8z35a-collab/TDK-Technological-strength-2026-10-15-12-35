@@ -1,0 +1,152 @@
+/* Cinematic inspection layer and controls. */
+.menu:not(.open) * {
+  pointer-events: none !important;
+}
+/* ------------------------------------------------------------------ cinematic inspection layer */
+.cinematic-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+.fx-canvas,
+.fx-aurora,
+.fx-grid,
+.fx-scan-beam,
+.fx-reticle,
+.fx-wipe,
+.fx-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.fx-canvas { opacity: 0.95; }
+.fx-aurora {
+  inset: -28%;
+  opacity: 0.2;
+  filter: blur(54px);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+}
+.fx-aurora.a {
+  background: radial-gradient(ellipse at 65% 45%, rgba(138,166,200,0.28), transparent 43%);
+  animation: fxAuroraA 13s ease-in-out infinite alternate;
+}
+.fx-aurora.b {
+  background: radial-gradient(ellipse at 55% 65%, rgba(197,138,92,0.24), transparent 38%);
+  animation: fxAuroraB 17s ease-in-out infinite alternate;
+}
+#ui[data-tone='light'] .fx-aurora { opacity: 0.09; mix-blend-mode: multiply; }
+.fx-grid {
+  inset: 52% -25% -38%;
+  opacity: 0.09;
+  background-image:
+    linear-gradient(rgba(138,166,200,0.32) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(138,166,200,0.32) 1px, transparent 1px);
+  background-size: 52px 32px;
+  transform: perspective(360px) rotateX(63deg) translateY(0);
+  transform-origin: center top;
+  animation: fxGrid 5s linear infinite;
+  -webkit-mask-image: linear-gradient(transparent, #000 45%, transparent 90%);
+  mask-image: linear-gradient(transparent, #000 45%, transparent 90%);
+}
+.fx-scan-beam {
+  height: 16%;
+  top: -20%;
+  bottom: auto;
+  opacity: 0.32;
+  background: linear-gradient(180deg, transparent, rgba(138,166,200,0.035) 58%, rgba(226,180,138,0.3) 98%, transparent 100%);
+  animation: fxScan 7.5s cubic-bezier(.4,0,.2,1) infinite;
+}
+.fx-reticle { inset: 74px var(--pad) 66px; opacity: 0.25; }
+.fx-reticle i { position: absolute; width: 34px; height: 34px; border-color: var(--line-2); border-style: solid; }
+.fx-reticle i:nth-child(1) { left: 0; top: 0; border-width: 1px 0 0 1px; animation: fxCorner 5s ease-in-out infinite; }
+.fx-reticle i:nth-child(2) { right: 0; top: 0; border-width: 1px 1px 0 0; animation: fxCorner 5s 1.2s ease-in-out infinite; }
+.fx-reticle i:nth-child(3) { left: 0; bottom: 0; border-width: 0 0 1px 1px; animation: fxCorner 5s 2.4s ease-in-out infinite; }
+.fx-reticle i:nth-child(4) { right: 0; bottom: 0; border-width: 0 1px 1px 0; animation: fxCorner 5s 3.6s ease-in-out infinite; }
+.fx-wipe { display: flex; flex-direction: column; justify-content: center; z-index: 3; }
+.fx-wipe i {
+  display: block;
+  flex: 1;
+  min-height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(226,180,138,0.72) 35%, rgba(138,166,200,0.78) 70%, transparent);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.cinematic-fx.phase .fx-wipe i { animation: fxBandWipe 1.05s var(--ease) both; animation-delay: calc(var(--i) * 16ms); }
+.cinematic-fx[data-dir='prev'] .fx-wipe i { transform-origin: right center; animation-direction: reverse; }
+.fx-flash { z-index: 2; opacity: 0; background: radial-gradient(circle at 66% 48%, rgba(236,230,218,0.42), rgba(138,166,200,0.09) 25%, transparent 58%); }
+.cinematic-fx.phase .fx-flash { animation: fxFlash 1.25s ease-out both; }
+.cinematic-fx.phase .fx-reticle { animation: fxReticlePhase 1.4s var(--ease) both; }
+
+.view-controls {
+  position: absolute;
+  right: calc(var(--safe-r) + var(--pad));
+  bottom: calc(var(--safe-b) + 92px);
+  z-index: 9;
+  display: grid;
+  justify-items: end;
+  gap: 7px;
+  pointer-events: auto;
+  color: var(--paper-2);
+  font-family: var(--font-mono);
+}
+.view-readout { display: flex; align-items: baseline; gap: 14px; text-shadow: var(--shadow-text); }
+.view-readout span { font-size: 9px; letter-spacing: 0.13em; }
+.view-readout b { min-width: 54px; text-align: right; font-size: 19px; font-weight: 400; color: var(--copper-2); font-variant-numeric: tabular-nums; }
+.view-buttons { display: flex; gap: 6px; }
+.view-buttons .ic-btn { width: 44px; height: 44px; background: var(--glass); backdrop-filter: blur(12px); }
+.view-controls > small { font-size: 8px; letter-spacing: 0.12em; color: var(--muted); }
+.phase-arrow { position: relative; overflow: visible; }
+.phase-arrow > span {
+  position: absolute;
+  left: 50%;
+  top: -17px;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  color: var(--paper-2);
+}
+.rail-next {
+  width: 58px;
+  height: 48px;
+  border-color: var(--copper);
+  background: rgba(197,138,92,0.09);
+  box-shadow: 0 0 0 0 rgba(226,180,138,0.28), inset 0 0 18px rgba(197,138,92,0.06);
+  animation: nextBeacon 2.2s ease-out infinite;
+}
+.rail-next svg { width: 25px; height: 25px; animation: nextArrow 1.4s var(--ease) infinite; }
+.rail-prev svg { animation: prevArrow 2s var(--ease) infinite; }
+.phase-arrow:disabled { opacity: 0.22; cursor: default; animation: none; box-shadow: none; }
+.phase-arrow:disabled svg { animation: none; }
+.phase-arrow:focus-visible { outline: 2px solid var(--copper-2); outline-offset: 4px; }
+
+@keyframes fxAuroraA { from { transform: translate3d(-4%,2%,0) rotate(-7deg) scale(.92); } to { transform: translate3d(5%,-4%,0) rotate(9deg) scale(1.12); } }
+@keyframes fxAuroraB { from { transform: translate3d(4%,-3%,0) rotate(8deg) scale(1.08); } to { transform: translate3d(-5%,4%,0) rotate(-10deg) scale(.9); } }
+@keyframes fxGrid { to { background-position: 0 32px, 52px 0; } }
+@keyframes fxScan { 0%,12% { transform: translateY(0); opacity: 0; } 22% { opacity: .32; } 74% { opacity: .22; } 88%,100% { transform: translateY(820%); opacity: 0; } }
+@keyframes fxCorner { 0%,100% { transform: scale(1); opacity: .5; } 50% { transform: scale(1.32); opacity: 1; } }
+@keyframes fxBandWipe { 0% { opacity: 0; transform: scaleX(0); } 34% { opacity: .8; transform: scaleX(1); } 62% { opacity: .32; transform: scaleX(1); transform-origin: right center; } 100% { opacity: 0; transform: scaleX(0); transform-origin: right center; } }
+@keyframes fxFlash { 0% { opacity: 0; transform: scale(.82); } 22% { opacity: .85; } 100% { opacity: 0; transform: scale(1.3); } }
+@keyframes fxReticlePhase { 0% { opacity: .2; transform: scale(1); } 35% { opacity: .85; transform: scale(1.035); } 100% { opacity: .25; transform: scale(1); } }
+@keyframes nextBeacon { 0% { box-shadow: 0 0 0 0 rgba(226,180,138,.3), inset 0 0 18px rgba(197,138,92,.06); } 70%,100% { box-shadow: 0 0 0 13px rgba(226,180,138,0), inset 0 0 26px rgba(197,138,92,.13); } }
+@keyframes nextArrow { 0%,100% { transform: translateY(-2px); } 55% { transform: translateY(3px); } }
+@keyframes prevArrow { 0%,100% { transform: translateY(2px); } 55% { transform: translateY(-2px); } }
+
+html.compact .view-controls { bottom: calc(var(--safe-b) + 58px); gap: 4px; }
+html.compact .view-buttons .ic-btn { width: 44px; height: 44px; }
+html.compact .view-controls > small { display: none; }
+html.compact .view-readout span { display: none; }
+html.compact .rail-next { width: 48px; height: 38px; }
+html.portrait .view-controls { top: calc(var(--safe-t) + 74px); bottom: auto; }
+html.portrait .view-controls > small { display: none; }
+html.portrait .fx-reticle { inset: 68px 16px 64px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-aurora, .fx-grid, .fx-scan-beam, .fx-reticle i, .rail-next, .rail-next svg, .rail-prev svg { animation: none !important; }
+  .cinematic-fx.phase .fx-wipe i, .cinematic-fx.phase .fx-flash, .cinematic-fx.phase .fx-reticle { animation-duration: .01ms !important; animation-delay: 0ms !important; }
+}
